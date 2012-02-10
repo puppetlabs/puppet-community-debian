@@ -36,6 +36,7 @@ if [ "$1" = "configure" ]; then
             sed -r -i "s|<Directory /etc/puppet/rack/>|<Directory /usr/share/puppet/rack/puppetmasterd/>|g" "${APACHE2_SITE_FILE}"
         fi
         a2enmod ssl
+        a2enmod headers
         a2ensite puppetmaster
         if [ -x "/etc/init.d/apache2" ]; then
             # Seems that a restart is needed. reload breaks ssl apparently.
