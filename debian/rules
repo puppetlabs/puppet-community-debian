@@ -31,7 +31,7 @@ build-arch: build
 build-indep: build
 
 build: build-stamp
-build-stamp: configure-stamp 
+build-stamp: configure-stamp
 	dh_testdir
 	touch build-stamp
 
@@ -40,19 +40,19 @@ clean:
 	dh_testroot
 	rm -f build-stamp configure-stamp
 	rm -f debian/puppet-common.logcheck.ignore.server
-	dh_clean 
+	dh_clean
 
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_clean -k
 	dh_installdirs
 
 	# Note sbindir does nothing right now. Leaving in for future
 	# puppet versions where it is respected.
 	$(CURDIR)/install.rb --destdir=debian/tmp --bindir=/usr/bin \
           --sbindir=/usr/sbin --sitelibdir=/usr/lib/ruby/1.8
-        
+
 	# strip executable bit from all the non-executable files.
 	find debian/tmp/usr/lib/ruby/1.8 -type f -perm /u+x,g+x,o+x -exec chmod a-x {} \;
 	# fix the permissions on all of the directories
@@ -87,6 +87,9 @@ install: build
 	sed -i -e 1s/ruby/ruby1.8/ \
 		$(CURDIR)/debian/puppetmaster-common/usr/sbin/puppetstoredconfigclean
 
+	# Add ext directory
+	cp -pr ext $(CURDIR)/debian/puppet-common/usr/share/puppet
+
 	dh_installexamples -p puppet-common examples/*
 
 	$(INSTALL) -d -m0775 $(pkgconfdir)/templates
@@ -111,7 +114,7 @@ binary-indep: build install
 	dh_installman
 	dh_installinit -ppuppetmaster
 	dh_installinit --name=puppetqd
-	dh_installinit -ppuppet --error-handler=true -- defaults 21 
+	dh_installinit -ppuppet --error-handler=true -- defaults 21
 	dh_installlogrotate -i
 	dh_lintian -i
 	dh_compress -i
