@@ -33,9 +33,9 @@ class Puppet::Daemon
       Puppet::Util::Log.reopen
     rescue => detail
       Puppet.err "Could not start #{Puppet[:name]}: #{detail}"
-      Puppet::Util::secure_open("/tmp/daemonout", "w") { |f|
+      Puppet::Util::replace_file("/tmp/daemonout", 0644) do |f|
         f.puts "Could not start #{Puppet[:name]}: #{detail}"
-      }
+      end
       exit(12)
     end
   end
@@ -74,8 +74,7 @@ class Puppet::Daemon
   # Remove the pid file for our daemon.
   def remove_pidfile
     Puppet::Util.synchronize_on(Puppet[:name],Sync::EX) do
-      locker = Puppet::Util::Pidlock.new(pidfile)
-      locker.unlock or Puppet.err "Could not remove PID file #{pidfile}" if locker.locked?
+      Puppet::Util::Pidlock.new(pidfile).unlock
     end
   end
 
