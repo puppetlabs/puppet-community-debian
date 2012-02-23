@@ -180,15 +180,29 @@ class Puppet::Property < Puppet::Parameter
     # Look for a matching value, either for all the @should values, or any of
     # them, depending on the configuration of this property.
     if match_all? then
-      old = (is == @should or is == @should.collect { |v| v.to_s })
-      new = Array(is).zip(@should).all? {|is, want| property_matches?(is, want) }
+      # Emulate Array#== using our own comparison function.
+      # A non-array was not equal to an array, which @should always is.
+      return false unless is.is_a? Array
 
-      puts "old and new mismatch!" unless old == new
-      fail "old and new mismatch!" unless old == new
+      # If they were different lengths, they are not equal.
+      return false unless is.length == @should.length
 
-      # We need to pairwise compare the entries; this preserves the old
-      # behaviour while using the new pair comparison code.
-      return Array(is).zip(@should).all? {|is, want| property_matches?(is, want) }
+      # Finally, are all the elements equal?  In order to preserve the
+      # behaviour of previous 2.7.x releases, we need to impose some fun rules
+      # on "equality" here.
+      #
+      # Specifically, we need to implement *this* comparison: the two arrays
+      # are identical if the is values are == the should values, or if the is
+      # values are == the should values, stringified.
+      #
+      # This does mean that property equality is not commutative, and will not
+      # work unless the `is` value is carefully arranged to match the should.
+      return (is == @should or is == @should.map(&:to_s))
+
+      # When we stop being idiots about this, and actually have meaningful
+      # semantics, this version is the thing we actually want to do.
+      #
+      # return is.zip(@should).all? {|a, b| property_matches?(a, b) }
     else
       return @should.any? {|want| property_matches?(is, want) }
     end
