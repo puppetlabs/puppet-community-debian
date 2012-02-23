@@ -1,3 +1,10 @@
+puppet (2.7.11-1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * Imported Upstream version 2.7.11
+  * CVE-2012-1053/1054
+
+ -- Michael Stahnke <stahnma@puppetlabs.com>  Wed, 22 Feb 2012 01:11:43 +0000
+
 puppet (2.7.10-1puppetlabs2) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy; urgency=low
 
   * (#12498) Add ext directory to puppet-common package. Enable apache2 headers module on passenger install
