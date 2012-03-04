@@ -120,28 +120,6 @@ module Util
     end
   end
 
-  # XXX this should all be done using puppet objects, not using
-  # normal mkdir
-  def self.recmkdir(dir,mode = 0755)
-    if FileTest.exist?(dir)
-      return false
-    else
-      tmp = dir.sub(/^\//,'')
-      path = [File::SEPARATOR]
-      tmp.split(File::SEPARATOR).each { |dir|
-        path.push dir
-        if ! FileTest.exist?(File.join(path))
-          Dir.mkdir(File.join(path), mode)
-        elsif FileTest.directory?(File.join(path))
-          next
-        else FileTest.exist?(File.join(path))
-          raise "Cannot create #{dir}: basedir #{File.join(path)} is a file"
-        end
-      }
-      return true
-    end
-  end
-
   # Execute a given chunk of code with a new umask.
   def self.withumask(mask)
     cur = File.umask(mask)
@@ -270,7 +248,14 @@ module Util
   end
   module_function :uri_to_path
 
-  # Execute the provided command in a pipe, yielding the pipe object.
+  # Execute the provided command with STDIN connected to a pipe, yielding the
+  # pipe object.  That allows data to be fed to that subprocess.
+  #
+  # The command can be a simple string, which is executed as-is, or an Array,
+  # which is treated as a set of command arguments to pass through.#
+  #
+  # In all cases this is passed directly to the shell, and STDOUT and STDERR
+  # are connected together during execution.
   def execpipe(command, failonfail = true)
     if respond_to? :debug
       debug "Executing '#{command}'"
@@ -278,7 +263,14 @@ module Util
       Puppet.debug "Executing '#{command}'"
     end
 
-    command_str = command.respond_to?(:join) ? command.join('') : command
+    # Paste together an array with spaces.  We used to paste directly
+    # together, no spaces, which made for odd invocations; the user had to
+    # include whitespace between arguments.
+    #
+    # Having two spaces is really not a big drama, since this passes to the
+    # shell anyhow, while no spaces makes for a small developer cost every
+    # time this is invoked. --daniel 2012-02-13
+    command_str = command.respond_to?(:join) ? command.join(' ') : command
     output = open("| #{command_str} 2>&1") do |pipe|
       yield pipe
     end
@@ -333,8 +325,7 @@ module Util
       part.include?(' ') ? %Q["#{part.gsub(/"/, '\"')}"] : part
     end.join(" ") if command.is_a?(Array)
 
-    process_info = Process.create( :command_line => command, :startup_info => {:stdin => stdin, :stdout => stdout, :stderr => stderr} )
-    process_info.process_id
+    Puppet::Util::Windows::Process.execute(command, arguments, stdin, stdout, stderr)
   end
   module_function :execute_windows
 
@@ -371,13 +362,13 @@ module Util
       child_pid = execute_posix(*exec_args)
       exit_status = Process.waitpid2(child_pid).last.exitstatus
     elsif Puppet.features.microsoft_windows?
-      child_pid = execute_windows(*exec_args)
-      exit_status = Process.waitpid2(child_pid).last
-      # $CHILD_STATUS is not set when calling win32/process Process.create
-      # and since it's read-only, we can't set it. But we can execute a
-      # a shell that simply returns the desired exit status, which has the
-      # desired effect.
-      %x{#{ENV['COMSPEC']} /c exit #{exit_status}}
+      process_info = execute_windows(*exec_args)
+      begin
+        exit_status = Puppet::Util::Windows::Process.wait_process(process_info.process_handle)
+      ensure
+        Process.CloseHandle(process_info.process_handle)
+        Process.CloseHandle(process_info.thread_handle)
+      end
     end
 
     [stdin, stdout, stderr].each {|io| io.close rescue nil}

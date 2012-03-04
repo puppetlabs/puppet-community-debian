@@ -118,6 +118,7 @@ Copyright (c) 2011 Puppet Labs, LLC Licensed under the Apache 2.0 License
       end
 
       @report.configuration_version = catalog.version
+      @report.environment = Puppet[:environment]
 
       inspect_starttime = Time.now
       @report.add_times("config_retrieval", inspect_starttime - retrieval_starttime)
@@ -164,7 +165,7 @@ Copyright (c) 2011 Puppet Labs, LLC Licensed under the Apache 2.0 License
         end
         if Puppet[:archive_files] and ral_resource.type == :file and audited_attributes.include?(:content)
           path = ral_resource[:path]
-          if File.readable?(path)
+          if ::File.readable?(path)
             begin
               dipper.backup(path)
             rescue StandardError => detail

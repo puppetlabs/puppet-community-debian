@@ -119,7 +119,7 @@ class Application
   require 'puppet/util'
   include Puppet::Util
 
-  DOCPATTERN = File.expand_path(File.dirname(__FILE__) + "/util/command_line/*" )
+  DOCPATTERN = ::File.expand_path(::File.dirname(__FILE__) + "/util/command_line/*" )
 
   class << self
     include Puppet::Util
@@ -216,7 +216,7 @@ class Application
       klass = name.to_s.capitalize
 
       begin
-        require File.join('puppet', 'application', name.to_s.downcase)
+        require ::File.join('puppet', 'application', name.to_s.downcase)
       rescue LoadError => e
         puts "Unable to find application '#{name}'.  #{e}"
         Kernel::exit(1)
@@ -318,7 +318,10 @@ class Application
   end
 
   def setup
-    # Handle the logging settings
+    setup_logs
+  end
+
+  def setup_logs
     if options[:debug] or options[:verbose]
       Puppet::Util::Log.newdestination(:console)
       if options[:debug]
@@ -328,7 +331,7 @@ class Application
       end
     end
 
-    Puppet::Util::Log.newdestination(:syslog) unless options[:setdest]
+    Puppet::Util::Log.setup_default unless options[:setdest]
   end
 
   def configure_indirector_routes

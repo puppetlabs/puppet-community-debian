@@ -1,10 +1,11 @@
 require 'net/http'
 require 'semver'
+require 'puppet/module_tool/utils/interrogation'
 
 module Puppet::Module::Tool
   module Applications
     class Application
-      include Utils::Interrogation
+      include Puppet::Module::Tool::Utils::Interrogation
 
       def self.run(*args)
         new(*args).run
@@ -14,10 +15,6 @@ module Puppet::Module::Tool
 
       def initialize(options = {})
         @options = options
-      end
-
-      def repository
-        @repository ||= Repository.new(@options[:module_repository])
       end
 
       def run

@@ -34,6 +34,9 @@ RSpec.configure do |config|
   config.mock_with :mocha
 
   config.before :each do
+    # Disabling garbage collection inside each test, and only running it at
+    # the end of each block, gives us an ~ 15 percent speedup, and more on
+    # some platforms *cough* windows *cough* that are a little slower.
     GC.disable
 
     # We need to preserve the current state of all our indirection cache and
@@ -66,6 +69,17 @@ RSpec.configure do |config|
     # fully diagnose those right now.  When you read this, please come tell me
     # I suck for letting this float. --daniel 2011-04-21
     Signal.stubs(:trap)
+
+    # Longer keys are secure, but they sure make for some slow testing - both
+    # in terms of generating keys, and in terms of anything the next step down
+    # the line doing validation or whatever.  Most tests don't care how long
+    # or secure it is, just that it exists, so these are better and faster
+    # defaults, in testing only.
+    #
+    # I would make these even shorter, but OpenSSL doesn't support anything
+    # below 512 bits.  Sad, really, because a 0 bit key would be just fine.
+    Puppet[:req_bits]  = 512
+    Puppet[:keylength] = 512
 
     # Set the confdir and vardir to gibberish so that tests
     # have to be correctly mocked.
@@ -102,6 +116,17 @@ RSpec.configure do |config|
     end
     $saved_indirection_state = nil
 
+    # Some tests can cause us to connect, in which case the lingering
+    # connection is a resource that can cause unexpected failure in later
+    # tests, as well as sharing state accidentally.
+    # We're testing if ActiveRecord::Base is defined because some test cases
+    # may stub Puppet.features.rails? which is how we should normally
+    # introspect for this functionality.
+    ActiveRecord::Base.remove_connection if defined?(ActiveRecord::Base)
+
+    # This will perform a GC between tests, but only if actually required.  We
+    # experimented with forcing a GC run, and that was less efficient than
+    # just letting it run all the time.
     GC.enable
   end
 end
