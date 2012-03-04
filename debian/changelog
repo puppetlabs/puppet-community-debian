@@ -1,3 +1,9 @@
+puppet (2.7.12-0.1rc2-1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * Imported Upstream version 2.7.12rc2, remove ext/puppetstoredconfigclean.rb from debian/rules
+
+ -- Matthaus Litteken <matthaus@puppetlabs.com>  Sat, 03 Mar 2012 15:11:43 +0000
+
 puppet (2.7.11-1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
 
   * Imported Upstream version 2.7.11

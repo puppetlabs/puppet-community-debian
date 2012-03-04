@@ -80,13 +80,6 @@ install: build
 	$(INSTALL) -m0644 ext/rack/files/apache2.conf \
 		$(CURDIR)/debian/puppetmaster-passenger/usr/share/puppetmaster-passenger/apache2.site.conf.tmpl
 
-	# strip off the .rb from the puppetstoredconfigclean.rb
-	$(INSTALL) -m 0755 ext/puppetstoredconfigclean.rb \
-		$(CURDIR)/debian/puppetmaster-common/usr/sbin/puppetstoredconfigclean
-	# Explicitly set ruby1.8 as parser, as with the rest of puppet
-	sed -i -e 1s/ruby/ruby1.8/ \
-		$(CURDIR)/debian/puppetmaster-common/usr/sbin/puppetstoredconfigclean
-
 	# Add ext directory
 	cp -pr ext $(CURDIR)/debian/puppet-common/usr/share/puppet
 
