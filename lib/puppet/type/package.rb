@@ -115,7 +115,6 @@ module Puppet
       # Override the parent method, because we've got all kinds of
       # funky definitions of 'in sync'.
       def insync?(is)
-        @latest ||= nil
         @lateststamp ||= (Time.now.to_i - 1000)
         # Iterate across all of the should values, and see how they
         # turn out.
@@ -156,7 +155,9 @@ module Puppet
             return true if is == :absent or is == :purged
           when :purged
             return true if is == :purged
-          when is
+          # this handles version number matches and
+          # supports providers that can have multiple versions installed
+          when *Array(is)
             return true
           end
         }
@@ -301,8 +302,25 @@ module Puppet
     end
 
     newparam(:install_options, :required_features => :install_options) do
-      desc "A hash of options to be handled by the provider when
-        installing a package."
+      desc <<-EOT
+        A hash of additional options to pass when installing a package. These
+        options are package-specific, and should be documented by the software
+        vendor. The most commonly implemented option is `INSTALLDIR`:
+
+            package { 'mysql':
+              ensure          => installed,
+              provider        => 'msi',
+              source          => 'N:/packages/mysql-5.5.16-winx64.msi',
+              install_options => { 'INSTALLDIR' => 'C:\\mysql-5.5' },
+            }
+
+        Since these options are passed verbatim to `msiexec`, any file paths
+        specified in `install_options` should use a backslash as the separator
+        character rather than a forward slash. This is the **only** place in Puppet
+        where backslash separators should be used. Note that backslashes in
+        double-quoted strings _must_ be double-escaped and backslashes
+        in single-quoted strings _may_ be double-escaped.
+      EOT
     end
 
     autorequire(:file) do
@@ -313,10 +331,8 @@ module Puppet
         end
       }
 
-      if source = self[:source]
-        if source =~ /^#{File::SEPARATOR}/
-          autos << source
-        end
+      if source = self[:source] and absolute_path?(source)
+        autos << source
       end
       autos
     end

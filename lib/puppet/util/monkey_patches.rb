@@ -129,6 +129,38 @@ class IO
     block_given? and lines.each {|line| yield line }
     lines
   end
+
+  def self.binread(name, length = nil, offset = 0)
+    File.open(name, 'rb') do |f|
+      f.seek(offset) if offset > 0
+      f.read(length)
+    end
+  end unless singleton_methods.include?(:binread)
+
+  def self.binwrite(name, string, offset = 0)
+    File.open(name, 'wb') do |f|
+      f.write(offset > 0 ? string[offset..-1] : string)
+    end
+  end unless singleton_methods.include?(:binwrite)
+
+end
+
+class Range
+  def intersection(other)
+    raise ArgumentError, 'value must be a Range' unless other.kind_of?(Range)
+    return unless other === self.first || self === other.first
+
+    start = [self.first, other.first].max
+    if self.exclude_end? && self.last <= other.last
+      start ... self.last
+    elsif other.exclude_end? && self.last >= other.last
+      start ... other.last
+    else
+      start .. [ self.last, other.last ].min
+    end
+  end unless method_defined? :intersection
+
+  alias_method :&, :intersection unless method_defined? :&
 end
 
 # Ruby 1.8.5 doesn't have tap

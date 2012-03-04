@@ -1,6 +1,8 @@
 #!/usr/bin/env rspec
 require 'spec_helper'
 require 'puppet_spec/files'
+require 'puppet_spec/modules'
+require 'puppet/module_tool/checksums'
 
 describe Puppet::Module do
   include PuppetSpec::Files
@@ -87,6 +89,153 @@ describe Puppet::Module do
     mod.puppetversion = "0.25"
     Puppet.stubs(:version).returns "0.24"
     lambda { mod.validate_puppet_version }.should raise_error(Puppet::Module::IncompatibleModule)
+  end
+
+  describe "when finding unmet dependencies" do
+    before do
+      @mod = Puppet::Module.new("mymod")
+      @mod.stubs(:dependencies).returns [
+        {
+          "version_requirement" => ">= 2.2.0",
+          "name"                => "baz/foobar"
+        }
+      ]
+    end
+
+    it "should list modules that are missing" do
+      @mod.unmet_dependencies.should == [{
+        :name  => 'baz/foobar',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Missing dependency `foobar`:
+            `mymod` () requires `baz/foobar` (>= 2.2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should list modules with unmet version" do
+      foobar = Puppet::Module.new("foobar")
+      foobar.version = '2.0.0'
+      @mod.environment.expects(:module).with("foobar").returns foobar
+
+      @mod.unmet_dependencies.should == [{
+        :name  => 'baz/foobar',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Version dependency mismatch `foobar` (2.0.0):
+            `mymod` () requires `baz/foobar` (>= 2.2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should consider a dependency without a version requirement to be satisfied" do
+      mod = Puppet::Module.new("mymod")
+      mod.stubs(:dependencies).returns [{ "name" => "baz/foobar" }]
+
+      foobar = Puppet::Module.new("foobar")
+      mod.environment.expects(:module).with("foobar").returns foobar
+
+      mod.unmet_dependencies.should be_empty
+    end
+
+    it "should consider a dependency without a version to be unmet" do
+      foobar = Puppet::Module.new("foobar")
+      @mod.environment.expects(:module).with("foobar").returns foobar
+
+      @mod.unmet_dependencies.should == [{
+        :name  => 'baz/foobar',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Unversioned dependency `foobar`:
+            `mymod` () requires `baz/foobar` (>= 2.2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should consider a dependency without a semantic version to be unmet" do
+      foobar = Puppet::Module.new("foobar")
+      foobar.version = '5.1'
+      @mod.environment.expects(:module).with("foobar").returns foobar
+
+      @mod.unmet_dependencies.should == [{
+        :name  => 'baz/foobar',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Non semantic version dependency `foobar` (5.1):
+            `mymod` () requires `baz/foobar` (>= 2.2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should consider a dependency requirement without a semantic version to be unmet" do
+      foobar = Puppet::Module.new("foobar")
+      foobar.version = '5.1.0'
+
+      mod = Puppet::Module.new("mymod")
+      mod.stubs(:dependencies).returns [{ "name" => "baz/foobar", "version_requirement" => '> 2.0' }]
+      mod.environment.expects(:module).with("foobar").returns foobar
+
+      mod.unmet_dependencies.should == [{
+        :name  => 'baz/foobar',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Non semantic version dependency `foobar` (5.1.0):
+            `mymod` () requires `baz/foobar` (> 2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should have valid dependencies when no dependencies have been specified" do
+      mod = Puppet::Module.new("mymod")
+
+      mod.unmet_dependencies.should == []
+    end
+
+    it "should only list unmet dependencies" do
+      mod = Puppet::Module.new("mymod")
+      mod.stubs(:dependencies).returns [
+        {
+          "version_requirement" => ">= 2.2.0",
+          "name"                => "baz/satisfied"
+        },
+        {
+          "version_requirement" => ">= 2.2.0",
+          "name"                => "baz/notsatisfied"
+        }
+      ]
+
+      satisfied = Puppet::Module.new("satisfied")
+      satisfied.version = "3.3.0"
+
+      mod.environment.expects(:module).with("satisfied").returns satisfied
+      mod.environment.expects(:module).with("notsatisfied").returns nil
+
+      mod.unmet_dependencies.should == [{
+        :name  => 'baz/notsatisfied',
+        :error => <<-HEREDOC.gsub(/^\s{10}/, '')
+          Missing dependency `notsatisfied`:
+            `mymod` () requires `baz/notsatisfied` (>= 2.2.0)
+        HEREDOC
+      }]
+    end
+
+    it "should be empty when all dependencies are met" do
+      mod = Puppet::Module.new("mymod")
+      mod.stubs(:dependencies).returns [
+        {
+          "version_requirement" => ">= 2.2.0",
+          "name"                => "baz/satisfied"
+        },
+        {
+          "version_requirement" => "< 2.2.0",
+          "name"                => "baz/alsosatisfied"
+        }
+      ]
+      satisfied = Puppet::Module.new("satisfied")
+      satisfied.version = "3.3.0"
+      alsosatisfied = Puppet::Module.new("alsosatisfied")
+      alsosatisfied.version = "2.1.0"
+
+      mod.environment.expects(:module).with("satisfied").returns satisfied
+      mod.environment.expects(:module).with("alsosatisfied").returns alsosatisfied
+
+      mod.unmet_dependencies.should be_empty
+    end
   end
 
   describe "when managing supported platforms" do
@@ -385,13 +534,14 @@ describe Puppet::Module, "when finding matching manifests" do
 end
 
 describe Puppet::Module do
+  include PuppetSpec::Files
   before do
-    Puppet::Module.any_instance.stubs(:path).returns "/my/mod/path"
-    @module = Puppet::Module.new("foo")
+    @modpath = tmpdir('modpath')
+    @module = PuppetSpec::Modules.create('mymod', @modpath)
   end
 
   it "should use 'License' in its current path as its metadata file" do
-    @module.license_file.should == "/my/mod/path/License"
+    @module.license_file.should == "#{@modpath}/mymod/License"
   end
 
   it "should return nil as its license file when the module has no path" do
@@ -400,13 +550,13 @@ describe Puppet::Module do
   end
 
   it "should cache the license file" do
-    Puppet::Module.any_instance.expects(:path).once.returns nil
-    mod = Puppet::Module.new("foo")
-    mod.license_file.should == mod.license_file
+    @module.expects(:path).once.returns nil
+    @module.license_file
+    @module.license_file
   end
 
   it "should use 'metadata.json' in its current path as its metadata file" do
-    @module.metadata_file.should == "/my/mod/path/metadata.json"
+    @module.metadata_file.should == "#{@modpath}/mymod/metadata.json"
   end
 
   it "should return nil as its metadata file when the module has no path" do
@@ -469,14 +619,15 @@ describe Puppet::Module do
     Puppet::Module.new("yay")
   end
 
-  describe "when loading the medatada file", :if => Puppet.features.pson? do
+  describe "when loading the metadata file", :if => Puppet.features.pson? do
     before do
       @data = {
         :license       => "GPL2",
         :author        => "luke",
         :version       => "1.0",
         :source        => "http://foo/",
-        :puppetversion => "0.25"
+        :puppetversion => "0.25",
+        :dependencies  => []
       }
       @text = @data.to_pson
 
@@ -508,5 +659,73 @@ describe Puppet::Module do
     end
 
     it "should fail if the discovered name is different than the metadata name"
+  end
+
+  it "should be able to tell if there are local changes" do
+    modpath = tmpdir('modpath')
+    foo_checksum = 'acbd18db4cc2f85cedef654fccc4a4d8'
+    checksummed_module = PuppetSpec::Modules.create(
+      'changed',
+      modpath,
+      :metadata => {
+        :checksums => {
+          "foo" => foo_checksum,
+        }
+      }
+    )
+
+    foo_path = Pathname.new(File.join(checksummed_module.path, 'foo'))
+
+    IO.binwrite(foo_path, 'notfoo')
+    Puppet::Module::Tool::Checksums.new(foo_path).checksum(foo_path).should_not == foo_checksum
+    checksummed_module.has_local_changes?.should be_true
+
+    IO.binwrite(foo_path, 'foo')
+
+    Puppet::Module::Tool::Checksums.new(foo_path).checksum(foo_path).should == foo_checksum
+    checksummed_module.has_local_changes?.should be_false
+  end
+
+  it "should know what other modules require it" do
+    Puppet.settings[:modulepath] = @modpath
+    dependable = PuppetSpec::Modules.create(
+      'dependable',
+      @modpath,
+      :metadata => {:author => 'puppetlabs'}
+    )
+    PuppetSpec::Modules.create(
+      'needy',
+      @modpath,
+      :metadata => {
+        :author => 'beggar',
+        :dependencies => [{
+            "version_requirement" => ">= 2.2.0",
+            "name" => "puppetlabs/dependable"
+        }]
+      }
+    )
+    PuppetSpec::Modules.create(
+      'wantit',
+      @modpath,
+      :metadata => {
+        :author => 'spoiled',
+        :dependencies => [{
+            "version_requirement" => "< 5.0.0",
+            "name" => "puppetlabs/dependable"
+        }]
+      }
+    )
+    dependable.required_by.should =~ [
+      {
+        "name"    => "beggar/needy",
+        "version" => "9.9.9",
+        "version_requirement" => ">= 2.2.0"
+      },
+      {
+        "name"    => "spoiled/wantit",
+        "version" => "9.9.9",
+        "version_requirement" => "< 5.0.0"
+      }
+    ]
   end
 end

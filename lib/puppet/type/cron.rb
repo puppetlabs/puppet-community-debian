@@ -87,7 +87,7 @@ Puppet::Type.newtype(:cron) do
       # if we can lengthen it (e.g., mon => monday).
       if tmp.length == 3
         ary.each_with_index { |name, index|
-          if name =~ /#{tmp}/i
+          if tmp.upcase == name[0..2].upcase
             return index
           end
         }
@@ -352,7 +352,10 @@ Puppet::Type.newtype(:cron) do
 
       The user defaults to whomever Puppet is running as."
 
-    defaultto { Etc.getpwuid(Process.uid).name || "root" }
+    defaultto {
+      struct = Etc.getpwuid(Process.uid)
+      struct.respond_to?(:name) && struct.name or 'root'
+    }
   end
 
   newproperty(:target) do
