@@ -8,9 +8,6 @@ class Puppet::Agent
   require 'puppet/agent/locker'
   include Puppet::Agent::Locker
 
-  require 'puppet/agent/disabler'
-  include Puppet::Agent::Disabler
-
   attr_reader :client_class, :client, :splayed
 
   # Just so we can specify that we are "the" instance.
@@ -35,9 +32,10 @@ class Puppet::Agent
       return
     end
     if disabled?
-      Puppet.notice "Skipping run of #{client_class}; administratively disabled: #{disable_message}"
+      Puppet.notice "Skipping run of #{client_class}; administratively disabled; use 'puppet #{client_class} --enable' to re-enable."
       return
     end
+
     result = nil
     block_run = Puppet::Application.controlled_run do
       splay
@@ -53,7 +51,7 @@ class Puppet::Agent
       end
       true
     end
-    Puppet.notice "Shutdown/restart in progress; skipping run" unless block_run
+    Puppet.notice "Shutdown/restart in progress (#{Puppet::Application.run_status.inspect}); skipping run" unless block_run
     result
   end
 

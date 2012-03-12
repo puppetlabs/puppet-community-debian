@@ -41,6 +41,8 @@ Puppet::Util::Log.newdesttype :syslog do
 end
 
 Puppet::Util::Log.newdesttype :file do
+  require 'fileutils'
+
   def self.match?(obj)
     Puppet::Util.absolute_path?(obj)
   end
@@ -64,7 +66,7 @@ Puppet::Util::Log.newdesttype :file do
     # We can't just use 'Config.use' here, because they've
     # specified a "special" destination.
     unless FileTest.exist?(File.dirname(path))
-      Puppet.recmkdir(File.dirname(path))
+      FileUtils.mkdir_p(File.dirname(path), :mode => 0755)
       Puppet.info "Creating log directory #{File.dirname(path)}"
     end
 
@@ -84,51 +86,8 @@ Puppet::Util::Log.newdesttype :file do
 end
 
 Puppet::Util::Log.newdesttype :console do
-
-
-  RED     = {:console => "[0;31m", :html => "FFA0A0"}
-  GREEN   = {:console => "[0;32m", :html => "00CD00"}
-  YELLOW  = {:console => "[0;33m", :html => "FFFF60"}
-  BLUE    = {:console => "[0;34m", :html => "80A0FF"}
-  PURPLE  = {:console => "[0;35m", :html => "FFA500"}
-  CYAN    = {:console => "[0;36m", :html => "40FFFF"}
-  WHITE   = {:console => "[0;37m", :html => "FFFFFF"}
-  HRED    = {:console => "[1;31m", :html => "FFA0A0"}
-  HGREEN  = {:console => "[1;32m", :html => "00CD00"}
-  HYELLOW = {:console => "[1;33m", :html => "FFFF60"}
-  HBLUE   = {:console => "[1;34m", :html => "80A0FF"}
-  HPURPLE = {:console => "[1;35m", :html => "FFA500"}
-  HCYAN   = {:console => "[1;36m", :html => "40FFFF"}
-  HWHITE  = {:console => "[1;37m", :html => "FFFFFF"}
-  RESET   = {:console => "[0m",    :html => ""      }
-
-  Colormap = {
-    :debug => WHITE,
-    :info => GREEN,
-    :notice => CYAN,
-    :warning => YELLOW,
-    :err => HPURPLE,
-    :alert => RED,
-    :emerg => HRED,
-    :crit => HRED
-  }
-
-  def colorize(level, str)
-    case Puppet[:color]
-    when true, :ansi, "ansi", "yes"; console_color(level, str)
-    when :html, "html"; html_color(level, str)
-    else
-      str
-    end
-  end
-
-  def console_color(level, str)
-    Colormap[level][:console] + str + RESET[:console]
-  end
-
-  def html_color(level, str)
-    %{<span style="color: %s">%s</span>} % [Colormap[level][:html], str]
-  end
+  require 'puppet/util/colors'
+  include Puppet::Util::Colors
 
   def initialize
     # Flush output immediately.
@@ -140,6 +99,40 @@ Puppet::Util::Log.newdesttype :console do
       puts colorize(msg.level, "#{msg.level}: #{msg}")
     else
       puts colorize(msg.level, "#{msg.level}: #{msg.source}: #{msg}")
+    end
+  end
+end
+
+Puppet::Util::Log.newdesttype :telly_prototype_console do
+  require 'puppet/util/colors'
+  include Puppet::Util::Colors
+
+  def initialize
+    # Flush output immediately.
+    $stderr.sync = true
+    $stdout.sync = true
+  end
+
+  def handle(msg)
+    error_levels = {
+      :warning => 'Warning',
+      :err     => 'Error',
+      :alert   => 'Alert',
+      :emerg   => 'Emergency',
+      :crit    => 'Critical'
+    }
+
+    str = msg.respond_to?(:multiline) ? msg.multiline : msg.to_s
+
+    case msg.level
+    when *error_levels.keys
+      $stderr.puts colorize(:hred, "#{error_levels[msg.level]}: #{str}")
+    when :info
+      $stdout.puts "#{colorize(:green, 'Info')}: #{str}"
+    when :debug
+      $stdout.puts "#{colorize(:cyan, 'Debug')}: #{str}"
+    else
+      $stdout.puts str
     end
   end
 end
@@ -167,7 +160,7 @@ Puppet::Util::Log.newdesttype :host do
         @domain = Facter["domain"].value
         @hostname += ".#{@domain}" if @domain
       end
-      if msg.source =~ /^\//
+      if Puppet::Util.absolute_path?(msg.source)
         msg.source = @hostname + ":#{msg.source}"
       elsif msg.source == "Puppet"
         msg.source = @hostname + " #{msg.source}"

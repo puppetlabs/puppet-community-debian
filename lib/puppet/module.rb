@@ -1,4 +1,6 @@
 require 'puppet/util/logging'
+require 'semver'
+require 'puppet/module_tool/applications'
 
 # Support for modules
 class Puppet::Module
@@ -30,6 +32,7 @@ class Puppet::Module
   attr_reader :name, :environment
   attr_writer :environment
 
+  attr_accessor :dependencies, :forge_name
   attr_accessor :source, :author, :version, :license, :puppetversion, :summary, :description, :project_page
 
   def has_metadata?
@@ -38,6 +41,8 @@ class Puppet::Module
     return false unless FileTest.exist?(metadata_file)
 
     metadata = PSON.parse File.read(metadata_file)
+
+
     return metadata.is_a?(Hash) && !metadata.keys.empty?
   end
 
@@ -56,7 +61,6 @@ class Puppet::Module
     load_metadata if has_metadata?
 
     validate_puppet_version
-    validate_dependencies
   end
 
   FILETYPES.each do |type|
@@ -107,7 +111,9 @@ class Puppet::Module
 
   def load_metadata
     data = PSON.parse File.read(metadata_file)
-    [:source, :author, :version, :license, :puppetversion].each do |attr|
+    @forge_name = data['name'].gsub('-', '/') if data['name']
+
+    [:source, :author, :version, :license, :puppetversion, :dependencies].each do |attr|
       unless value = data[attr.to_s]
         unless attr == :puppetversion
           raise MissingMetadata, "No #{attr} module metadata provided for #{self.name}"
@@ -154,18 +160,72 @@ class Puppet::Module
     result
   end
 
-  def validate_dependencies
-    return unless defined?(@requires)
+  def dependencies_as_modules
+    dependent_modules = []
+    dependencies and dependencies.each do |dep|
+      author, dep_name = dep["name"].split('/')
+      found_module = environment.module(dep_name)
+      dependent_modules << found_module if found_module
+    end
 
-    @requires.each do |name, version|
-      unless mod = environment.module(name)
-        raise MissingModule, "Missing module #{name} required by #{self.name}"
+    dependent_modules
+  end
+
+  def required_by
+    environment.module_requirements[self.forge_name] || {}
+  end
+
+  def has_local_changes?
+    changes = Puppet::Module::Tool::Applications::Checksummer.run(path)
+    !changes.empty?
+  end
+
+  def unmet_dependencies
+    return [] unless dependencies
+
+    unmet_dependencies = []
+
+    dependencies.each do |dependency|
+      forge_name = dependency['name']
+      author, dep_name = forge_name.split('/')
+      version_string = dependency['version_requirement']
+
+      equality, dep_version = version_string ? version_string.split("\s") : [nil, nil]
+
+      unless dep_mod = environment.module(dep_name)
+        msg =  "Missing dependency `#{dep_name}`:\n"
+        msg += "  `#{self.name}` (#{self.version}) requires `#{forge_name}` (#{version_string})\n"
+        unmet_dependencies << { :name => forge_name, :error => msg }
+        next
       end
 
-      if version and mod.version != version
-        raise IncompatibleModule, "Required module #{name} is version #{mod.version} but #{self.name} requires #{version}"
+      if dep_version && !dep_mod.version
+        msg =  "Unversioned dependency `#{dep_mod.name}`:\n"
+        msg += "  `#{self.name}` (#{self.version}) requires `#{forge_name}` (#{version_string})\n"
+        unmet_dependencies << { :name => forge_name, :error => msg }
+        next
+      end
+
+      if dep_version
+        begin
+          required_version_semver = SemVer.new(dep_version)
+          actual_version_semver = SemVer.new(dep_mod.version)
+        rescue ArgumentError
+          msg =  "Non semantic version dependency `#{dep_mod.name}` (#{dep_mod.version}):\n"
+          msg += "  `#{self.name}` (#{self.version}) requires `#{forge_name}` (#{version_string})\n"
+          unmet_dependencies << { :name => forge_name, :error => msg }
+          next
+        end
+
+        if !actual_version_semver.send(equality, required_version_semver)
+          msg =  "Version dependency mismatch `#{dep_mod.name}` (#{dep_mod.version}):\n"
+          msg += "  `#{self.name}` (#{self.version}) requires `#{forge_name}` (#{version_string})\n"
+          unmet_dependencies << { :name => forge_name, :error => msg }
+          next
+        end
       end
     end
+    unmet_dependencies
   end
 
   def validate_puppet_version
@@ -191,7 +251,7 @@ class Puppet::Module
   end
 
   def assert_validity
-    raise InvalidName, "Invalid module name; module names must be alphanumeric (plus '-'), not '#{name}'" unless name =~ /^[-\w]+$/
+    raise InvalidName, "Invalid module name #{name}; module names must be alphanumeric (plus '-'), not '#{name}'" unless name =~ /^[-\w]+$/
   end
 
   def ==(other)

@@ -5,7 +5,7 @@
 %global confdir conf/redhat
 
 Name:           puppet
-Version:        2.7.10
+Version:        2.7.12
 #Release:        0.1rc1%{?dist}
 Release:        1%{?dist}
 Summary:        A network tool for managing many disparate systems
@@ -25,7 +25,7 @@ BuildRequires:  ruby >= 1.8.1
 
 %if 0%{?fedora} || 0%{?rhel} >= 5
 BuildArch:      noarch
-Requires:       ruby(abi) = 1.8
+Requires:       ruby(abi) >= 1.8
 Requires:       ruby-shadow
 %endif
 
@@ -82,7 +82,7 @@ done
 for f in external/nagios.rb network/http_server/mongrel.rb relationship.rb; do
   sed -i -e '1d' lib/puppet/$f
 done
-chmod +x ext/puppetstoredconfigclean.rb
+#chmod +x ext/puppetstoredconfigclean.rb
 
 find examples/ -type f -empty | xargs rm
 find examples/ -type f | xargs chmod a-x
@@ -285,6 +285,15 @@ fi
 rm -rf %{buildroot}
 
 %changelog
+* Mon Mar 12 2012 Michael Stahnke <stahnma@puppetlabs.com> - 2.7.12-1
+- Update for 2.7.12
+
+* Fri Feb 24 2012 Matthaus Litteken <matthaus@puppetlabs.com> - 2.7.11-2
+- Update 2.7.11 from proper tag, including #12572
+
+* Wed Feb 22 2012 Michael Stahnke <stahnma@puppetlabs.com> - 2.7.11-1
+- Update for 2.7.11
+
 * Wed Jan 25 2012 Michael Stahnke <stahnma@puppetlabs.com> - 2.7.10-1
 - Update for 2.7.10
 
@@ -327,12 +336,6 @@ rm -rf %{buildroot}
 
 * Wed Jul 06 2011 Michael Stahnke <stahnma@puppetlabs.com> - 2.7.2-0.1.rc1
 - Update to 2.7.2rc1
-
-* Mon Dec 12 2011 Matthaus Litteken <matthaus@puppetlabs.com> - 2.6.13-1
-- Release of 2.6.13
-
-* Fri Oct 21 2011 Michael Stahnke <stahnma@puppetlabs.com> - 2.6.12-1
-- CVE-2011-3872 fixes
 
 * Wed Jun 15 2011 Todd Zullinger <tmz@pobox.com> - 2.6.9-0.1.rc1
 - Update rc versioning to ensure 2.6.9 final is newer to rpm

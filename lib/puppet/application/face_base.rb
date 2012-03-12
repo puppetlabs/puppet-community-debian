@@ -37,10 +37,17 @@ class Puppet::Application::FaceBase < Puppet::Application
     @render_as or raise ArgumentError, "I don't know how to render '#{format}'"
   end
 
-  def render(result)
-    # Invoke the rendering hook supplied by the user, if appropriate.
-    if hook = action.when_rendering(render_as.name)
-      result = hook.call(result)
+  def render(result, args_and_options)
+    hook = action.when_rendering(render_as.name)
+
+    if hook
+      # when defining when_rendering on your action you can optionally
+      # include arguments and options
+      if hook.arity > 1
+        result = hook.call(result, *args_and_options)
+      else
+        result = hook.call(result)
+      end
     end
 
     render_as.render(result)
@@ -233,8 +240,18 @@ class Puppet::Application::FaceBase < Puppet::Application
     end
 
     result = @face.send(@action.name, *arguments)
-    puts render(result) unless result.nil?
+    puts render(result, arguments) unless result.nil?
     status = true
+
+  # We need an easy way for the action to set a specific exit code, so we
+  # rescue SystemExit here; This allows each action to set the desired exit
+  # code by simply calling Kernel::exit.  eg:
+  #
+  #   exit(2)
+  #
+  # --kelsey 2012-02-14
+  rescue SystemExit => detail
+    status = detail.status
 
   rescue Exception => detail
     puts detail.backtrace if Puppet[:trace]

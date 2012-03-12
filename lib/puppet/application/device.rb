@@ -171,8 +171,8 @@ Licensed under the Apache 2.0 License
         Puppet.info "starting applying configuration to #{device.name} at #{device.url}"
 
         # override local $vardir and $certname
-        Puppet.settings.set_value(:confdir, File.join(Puppet[:devicedir], device.name), :cli)
-        Puppet.settings.set_value(:vardir, File.join(Puppet[:devicedir], device.name), :cli)
+        Puppet.settings.set_value(:confdir, ::File.join(Puppet[:devicedir], device.name), :cli)
+        Puppet.settings.set_value(:vardir, ::File.join(Puppet[:devicedir], device.name), :cli)
         Puppet.settings.set_value(:certname, device.name, :cli)
 
         # this will reload and recompute default settings and create the devices sub vardir, or we hope so :-)
@@ -199,20 +199,6 @@ Licensed under the Apache 2.0 License
         Puppet::SSL::Host.reset
       end
     end
-  end
-
-  # Handle the logging settings.
-  def setup_logs
-    if options[:debug] or options[:verbose]
-      Puppet::Util::Log.newdestination(:console)
-      if options[:debug]
-        Puppet::Util::Log.level = :debug
-      else
-        Puppet::Util::Log.level = :info
-      end
-    end
-
-    Puppet::Util::Log.newdestination(:syslog) unless options[:setdest]
   end
 
   def setup_host

@@ -1,3 +1,4 @@
+require 'puppet/util'
 require 'puppet/util/cacher'
 require 'monitor'
 
@@ -92,6 +93,14 @@ class Puppet::Node::Environment
     mod
   end
 
+  def module_by_forge_name(forge_name)
+    author, modname = forge_name.split('/')
+    found_mod = self.module(modname)
+    found_mod and found_mod.forge_name == forge_name ?
+      found_mod :
+      nil
+  end
+
   # Cache the modulepath, so that we aren't searching through
   # all known directories all the time.
   cached_attr(:modulepath, Puppet[:filetimeout]) do
@@ -127,6 +136,27 @@ class Puppet::Node::Environment
     modules_by_path
   end
 
+  def module_requirements
+    deps = {}
+    modules.each do |mod|
+      next unless mod.forge_name
+      deps[mod.forge_name] ||= []
+      mod.dependencies and mod.dependencies.each do |mod_dep|
+        deps[mod_dep['name']] ||= []
+        dep_details = {
+          'name'                => mod.forge_name,
+          'version'             => mod.version,
+          'version_requirement' => mod_dep['version_requirement']
+        }
+        deps[mod_dep['name']] << dep_details
+      end
+    end
+    deps.each do |mod, mod_deps|
+      deps[mod] = mod_deps.sort_by {|d| d['name']}
+    end
+    deps
+  end
+
   def to_s
     name.to_s
   end
@@ -143,18 +173,14 @@ class Puppet::Node::Environment
   end
 
   def validate_dirs(dirs)
-    dir_regex = Puppet.features.microsoft_windows? ? /^[A-Za-z]:#{File::SEPARATOR}/ : /^#{File::SEPARATOR}/
-    # REMIND: Dir.getwd on windows returns a path containing backslashes, which when joined with
-    # dir containing forward slashes, breaks our regex matching. In general, path validation needs
-    # to be refactored which will be handled in a future commit.
     dirs.collect do |dir|
-      if dir !~ dir_regex
+      unless Puppet::Util.absolute_path?(dir)
         File.expand_path(File.join(Dir.getwd, dir))
       else
         dir
       end
     end.find_all do |p|
-      p =~ dir_regex && FileTest.directory?(p)
+      Puppet::Util.absolute_path?(p) && FileTest.directory?(p)
     end
   end
 
