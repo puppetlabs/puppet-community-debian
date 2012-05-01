@@ -1,3 +1,9 @@
+puppet (2.7.13-1puppetlabs2) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * (#14080) Add suggests on ruby-activerecord | libactiverecord-ruby
+
+ -- Matthaus Litteken <matthaus@puppetlabs.com>  Tue, 01 May 2012 19:52:38 +0000
+
 puppet (2.7.13-1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
 
   * Imported Upstream version 2.7.13
