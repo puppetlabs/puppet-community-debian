@@ -58,7 +58,7 @@ Depends: ${misc:Depends}, ruby1.8, puppet-common (= ${binary:Version}), facter, 
 Breaks: puppet (<< 0.24.7-1), puppetmaster (<< 2.6.1~rc2-1)
 Replaces: puppetmaster (<< 2.6.1~rc2-1)
 Suggests: apache2 | nginx, mongrel, puppet-el, vim-puppet, stompserver, libstomp-ruby1.8,
- rails (>= 1.2.3-2), rdoc, libldap-ruby1.8
+ rails (>= 1.2.3-2) | ruby-activerecord | libactiverecord-ruby, rdoc, libldap-ruby1.8
 Description: Puppet master common scripts
  This package contains common scripts for the puppet master, 
  which is the server hosting manifests and files for the puppet nodes.
@@ -79,7 +79,7 @@ Architecture: all
 Depends: ${misc:Depends}, ruby1.8, puppetmaster-common (= ${source:Version}), facter, lsb-base
 Breaks: puppet (<< 0.24.7-1)
 Suggests: apache2 | nginx, mongrel, puppet-el, vim-puppet, stompserver, libstomp-ruby1.8,
- rails (>= 1.2.3-2), rdoc, libldap-ruby1.8
+ rails (>= 1.2.3-2) | ruby-activerecord | libactiverecord-ruby, rdoc, libldap-ruby1.8
 Description: Centralized configuration management - master startup and compatibility scripts
  This package contains the startup and compatibility scripts for the puppet
  master, which is the server hosting manifests and files for the puppet nodes.
