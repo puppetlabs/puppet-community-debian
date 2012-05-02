@@ -30,18 +30,18 @@ describe Puppet::Util do
   end
 
   describe "#absolute_path?" do
-    it "should default to the platform of the local system" do
-      Puppet.features.stubs(:posix?).returns(true)
-      Puppet.features.stubs(:microsoft_windows?).returns(false)
+    describe "on posix systems", :as_platform => :posix do
+      it "should default to the platform of the local system" do
+        Puppet::Util.should be_absolute_path('/foo')
+        Puppet::Util.should_not be_absolute_path('C:/foo')
+      end
+    end
 
-      Puppet::Util.should be_absolute_path('/foo')
-      Puppet::Util.should_not be_absolute_path('C:/foo')
-
-      Puppet.features.stubs(:posix?).returns(false)
-      Puppet.features.stubs(:microsoft_windows?).returns(true)
-
-      Puppet::Util.should be_absolute_path('C:/foo')
-      Puppet::Util.should_not be_absolute_path('/foo')
+    describe "on windows", :as_platform => :windows do
+      it "should default to the platform of the local system" do
+        Puppet::Util.should be_absolute_path('C:/foo')
+        Puppet::Util.should_not be_absolute_path('/foo')
+      end
     end
 
     describe "when using platform :posix" do
@@ -219,15 +219,6 @@ describe Puppet::Util do
 
       it "should start a new session group" do
         Process.expects(:setsid)
-
-        Puppet::Util.execute_posix('test command', {}, @stdin, @stdout, @stderr)
-      end
-
-      it "should close all open file descriptors except stdin/stdout/stderr" do
-        # This is ugly, but I can't really think of a better way to do it without
-        # letting it actually close fds, which seems risky
-        (0..2).each {|n| IO.expects(:new).with(n).never}
-        (3..256).each {|n| IO.expects(:new).with(n).returns mock('io', :close) }
 
         Puppet::Util.execute_posix('test command', {}, @stdin, @stdout, @stderr)
       end
@@ -487,6 +478,38 @@ describe Puppet::Util do
         }.not_to raise_error
       end
     end
+
+    describe "safe_posix_fork" do
+      before :each do
+        # Most of the things this method does are bad to do during specs. :/
+        Kernel.stubs(:fork).returns(pid).yields
+
+        $stdin.stubs(:reopen)
+        $stdout.stubs(:reopen)
+        $stderr.stubs(:reopen)
+      end
+
+      it "should close all open file descriptors except stdin/stdout/stderr" do
+        # This is ugly, but I can't really think of a better way to do it without
+        # letting it actually close fds, which seems risky
+        (0..2).each {|n| IO.expects(:new).with(n).never}
+        (3..256).each {|n| IO.expects(:new).with(n).returns mock('io', :close) }
+
+        Puppet::Util.safe_posix_fork
+      end
+
+      it "should fork a child process to execute the block" do
+        Kernel.expects(:fork).returns(pid).yields
+
+        Puppet::Util.safe_posix_fork do
+          message = "Fork this!"
+        end
+      end
+
+      it "should return the pid of the child process" do
+        Puppet::Util.safe_posix_fork.should == pid
+      end
+    end
   end
 
   describe "#execpipe" do
@@ -634,6 +657,26 @@ describe Puppet::Util do
 
     it "should raise an error if the file doesn't exist" do
       expect { Puppet::Util.binread('/path/does/not/exist') }.to raise_error(Errno::ENOENT)
+    end
+  end
+
+  describe "hash symbolizing functions" do
+    let (:myhash) { { "foo" => "bar", :baz => "bam" } }
+    let (:resulthash) { { :foo => "bar", :baz => "bam" } }
+
+    describe "#symbolizehash" do
+      it "should return a symbolized hash" do
+        newhash = Puppet::Util.symbolizehash(myhash)
+        newhash.should == resulthash
+      end
+    end
+
+    describe "#symbolizehash!" do
+      it "should symbolize the hash in place" do
+        localhash = myhash
+        Puppet::Util.symbolizehash!(localhash)
+        localhash.should == resulthash
+      end
     end
   end
 

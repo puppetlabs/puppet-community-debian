@@ -1,11 +1,11 @@
 require 'net/http'
 require 'semver'
-require 'puppet/module_tool/utils/interrogation'
+require 'puppet/util/colors'
 
-module Puppet::Module::Tool
+module Puppet::ModuleTool
   module Applications
     class Application
-      include Puppet::Module::Tool::Utils::Interrogation
+      include Puppet::Util::Colors
 
       def self.run(*args)
         new(*args).run
@@ -14,6 +14,9 @@ module Puppet::Module::Tool
       attr_accessor :options
 
       def initialize(options = {})
+        if Puppet.features.microsoft_windows?
+          raise Puppet::Error, "`puppet module` actions are currently not supported on Microsoft Windows"
+        end
         @options = options
       end
 
@@ -36,14 +39,14 @@ module Puppet::Module::Tool
           unless @path
             raise ArgumentError, "Could not determine module path"
           end
-          @metadata = Puppet::Module::Tool::Metadata.new
+          @metadata = Puppet::ModuleTool::Metadata.new
           contents = ContentsDescription.new(@path)
           contents.annotate(@metadata)
           checksums = Checksums.new(@path)
           checksums.annotate(@metadata)
           modulefile_path = File.join(@path, 'Modulefile')
           if File.file?(modulefile_path)
-            Puppet::Module::Tool::ModulefileReader.evaluate(@metadata, modulefile_path)
+            Puppet::ModuleTool::ModulefileReader.evaluate(@metadata, modulefile_path)
           elsif require_modulefile
             raise ArgumentError, "No Modulefile found."
           end
@@ -56,24 +59,23 @@ module Puppet::Module::Tool
         metadata(true)
       end
 
-      # Use to extract and validate a module name and version from a
-      # filename
-      # Note: Must have @filename set to use this
-      def parse_filename!
-        @release_name = File.basename(@filename,'.tar.gz')
-        match = /^(.*?)-(.*?)-(\d+\.\d+\.\d+.*?)$/.match(@release_name)
-        if match then
-          @username, @module_name, @version = match.captures
+      def parse_filename(filename)
+        if match = /^((.*?)-(.*?))-(\d+\.\d+\.\d+.*?)$/.match(File.basename(filename,'.tar.gz'))
+          module_name, author, shortname, version = match.captures
         else
           raise ArgumentError, "Could not parse filename to obtain the username, module name and version.  (#{@release_name})"
         end
-        @full_module_name = [@username, @module_name].join('-')
-        unless @username && @module_name
-          raise ArgumentError, "Username and Module name not provided"
+
+        unless SemVer.valid?(version)
+          raise ArgumentError, "Invalid version format: #{version} (Semantic Versions are acceptable: http://semver.org)"
         end
-        unless SemVer.valid?(@version)
-          raise ArgumentError, "Invalid version format: #{@version} (Semantic Versions are acceptable: http://semver.org)"
-        end
+
+        return {
+          :module_name => module_name,
+          :author      => author,
+          :dir_name    => shortname,
+          :version     => version
+        }
       end
     end
   end

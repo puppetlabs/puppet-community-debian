@@ -413,6 +413,25 @@ describe provider_class do
         @provider.should be_need_to_run
       end
 
+      # Workaround for Augeas bug #264 which reports filenames twice
+      it "should handle duplicate /augeas/events/saved filenames" do
+        file = "/etc/hosts"
+
+        @resource[:context] = "/files"
+        @resource[:changes] = ["set #{file}/foo bar"]
+
+        @augeas.stubs(:match).with("/augeas/events/saved").returns(["/augeas/events/saved[1]", "/augeas/events/saved[2]"])
+        @augeas.stubs(:get).with("/augeas/events/saved[1]").returns("/files#{file}")
+        @augeas.stubs(:get).with("/augeas/events/saved[2]").returns("/files#{file}")
+        @augeas.expects(:set).with("/augeas/save", "newfile")
+        @augeas.expects(:close)
+
+        File.expects(:delete).with(file + ".augnew").once()
+
+        @provider.expects(:diff).with("#{file}", "#{file}.augnew").returns("").once()
+        @provider.should be_need_to_run
+      end
+
       it "should fail with an error if saving fails" do
         file = "/etc/hosts"
 
