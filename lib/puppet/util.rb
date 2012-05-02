@@ -196,8 +196,17 @@ module Util
       :windows => %r!^(([A-Z]:#{slash})|(#{slash}#{slash}#{name}#{slash}#{name})|(#{slash}#{slash}\?#{slash}#{name}))!i,
       :posix   => %r!^/!,
     }
+
+    # Due to weird load order issues, I was unable to remove this require.
+    # This is fixed in Telly so it can be removed there.
     require 'puppet'
-    platform ||= Puppet.features.microsoft_windows? ? :windows : :posix
+
+    # Ruby only sets File::ALT_SEPARATOR on Windows and the Ruby standard
+    # library uses that to test what platform it's on.  Normally in Puppet we
+    # would use Puppet.features.microsoft_windows?, but this method needs to
+    # be called during the initialization of features so it can't depend on
+    # that.
+    platform ||= File::ALT_SEPARATOR ? :windows : :posix
 
     !! (path =~ regexes[platform])
   end
@@ -292,7 +301,7 @@ module Util
   end
 
   def execute_posix(command, arguments, stdin, stdout, stderr)
-    child_pid = Kernel.fork do
+    child_pid = safe_posix_fork(stdin, stdout, stderr) do
       # We can't just call Array(command), and rely on it returning
       # things like ['foo'], when passed ['foo'], because
       # Array(command) will call command.to_a internally, which when
@@ -301,12 +310,6 @@ module Util
       command = [command].flatten
       Process.setsid
       begin
-        $stdin.reopen(stdin)
-        $stdout.reopen(stdout)
-        $stderr.reopen(stderr)
-
-        3.upto(256){|fd| IO::new(fd).close rescue nil}
-
         Puppet::Util::SUIDManager.change_privileges(arguments[:uid], arguments[:gid], true)
 
         ENV['LANG'] = ENV['LC_ALL'] = ENV['LC_MESSAGES'] = ENV['LANGUAGE'] = 'C'
@@ -319,6 +322,20 @@ module Util
     child_pid
   end
   module_function :execute_posix
+
+  def safe_posix_fork(stdin=$stdin, stdout=$stdout, stderr=$stderr, &block)
+    child_pid = Kernel.fork do
+      $stdin.reopen(stdin)
+      $stdout.reopen(stdout)
+      $stderr.reopen(stderr)
+
+      3.upto(256){|fd| IO::new(fd).close rescue nil}
+
+      block.call if block
+    end
+    child_pid
+  end
+  module_function :safe_posix_fork
 
   def execute_windows(command, arguments, stdin, stdout, stderr)
     command = command.map do |part|
@@ -447,15 +464,15 @@ module Util
         newhash[name] = val
       end
     end
+    newhash
   end
 
   def symbolizehash!(hash)
-    hash.each do |name, val|
-      if name.is_a? String
-        hash[name.intern] = val
-        hash.delete(name)
-      end
-    end
+    # this is not the most memory-friendly way to accomplish this, but the
+    #  code re-use and clarity seems worthwhile.
+    newhash = symbolizehash(hash)
+    hash.clear
+    hash.merge!(newhash)
 
     hash
   end

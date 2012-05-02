@@ -2,9 +2,15 @@ Puppet::Face.define(:module, '1.0.0') do
   action(:build) do
     summary "Build a module release package."
     description <<-EOT
-      Build a module release archive file by processing the Modulefile in the
-      module directory.  The release archive file will be stored in the pkg
-      directory of the module directory.
+      Prepares a local module for release on the Puppet Forge by building a
+      ready-to-upload archive file.
+
+      This action uses the Modulefile in the module directory to set metadata
+      used by the Forge. See <http://links.puppetlabs.com/modulefile> for more
+      about writing modulefiles.
+
+      After being built, the release archive file can be found in the module's
+      `pkg` directory.
     EOT
 
     returns "Pathname object representing the path to the release archive."
@@ -20,7 +26,7 @@ Puppet::Face.define(:module, '1.0.0') do
     arguments "<path>"
 
     when_invoked do |path, options|
-      Puppet::Module::Tool::Applications::Builder.run(path, options)
+      Puppet::ModuleTool::Applications::Builder.run(path, options)
     end
 
     when_rendering :console do |return_value|

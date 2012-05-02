@@ -22,6 +22,16 @@ describe SemVer do
     end
   end
 
+  describe '::pre' do
+    it 'should append a dash when no dash appears in the string' do
+      SemVer.pre('1.2.3').should == '1.2.3-'
+    end
+
+    it 'should not append a dash when a dash appears in the string' do
+      SemVer.pre('1.2.3-a').should == '1.2.3-a'
+    end
+  end
+
   describe '::find_matching' do
     before :all do
       @versions = %w[
@@ -77,19 +87,27 @@ describe SemVer do
   describe '::[]' do
     it "should produce expected ranges" do
       tests = {
-        '1.2.3'           => SemVer.new('v1.2.3-') ..  SemVer.new('v1.2.3'),
-        '>1.2.3'          => SemVer.new('v1.2.4-') ..  SemVer::MAX,
-        '<1.2.3'          => SemVer::MIN           ... SemVer.new('v1.2.3-'),
-        '>=1.2.3'         => SemVer.new('v1.2.3-') ..  SemVer::MAX,
-        '<=1.2.3'         => SemVer::MIN           ..  SemVer.new('v1.2.3'),
-        '>1.2.3 <1.2.5'   => SemVer.new('v1.2.4-') ... SemVer.new('v1.2.5-'),
-        '>=1.2.3 <=1.2.5' => SemVer.new('v1.2.3-') ..  SemVer.new('v1.2.5'),
-        '1.2.3 - 2.3.4'   => SemVer.new('v1.2.3-') ..  SemVer.new('v2.3.4'),
-        '~1.2.3'          => SemVer.new('v1.2.3-') ... SemVer.new('v1.3.0-'),
-        '~1.2'            => SemVer.new('v1.2.0-') ... SemVer.new('v2.0.0-'),
-        '~1'              => SemVer.new('v1.0.0-') ... SemVer.new('v2.0.0-'),
-        '1.2.x'           => SemVer.new('v1.2.0')  ... SemVer.new('v1.3.0-'),
-        '1.x'             => SemVer.new('v1.0.0')  ... SemVer.new('v2.0.0-'),
+        '1.2.3-alpha'          => SemVer.new('v1.2.3-alpha')  ..  SemVer.new('v1.2.3-alpha'),
+        '1.2.3'                => SemVer.new('v1.2.3-')       ..  SemVer.new('v1.2.3'),
+        '>1.2.3-alpha'         => SemVer.new('v1.2.3-alpha-') ..  SemVer::MAX,
+        '>1.2.3'               => SemVer.new('v1.2.4-')       ..  SemVer::MAX,
+        '<1.2.3-alpha'         => SemVer::MIN                 ... SemVer.new('v1.2.3-alpha'),
+        '<1.2.3'               => SemVer::MIN                 ... SemVer.new('v1.2.3-'),
+        '>=1.2.3-alpha'        => SemVer.new('v1.2.3-alpha')  ..  SemVer::MAX,
+        '>=1.2.3'              => SemVer.new('v1.2.3-')       ..  SemVer::MAX,
+        '<=1.2.3-alpha'        => SemVer::MIN                 ..  SemVer.new('v1.2.3-alpha'),
+        '<=1.2.3'              => SemVer::MIN                 ..  SemVer.new('v1.2.3'),
+        '>1.2.3-a <1.2.3-b'    => SemVer.new('v1.2.3-a-')     ... SemVer.new('v1.2.3-b'),
+        '>1.2.3 <1.2.5'        => SemVer.new('v1.2.4-')       ... SemVer.new('v1.2.5-'),
+        '>=1.2.3-a <= 1.2.3-b' => SemVer.new('v1.2.3-a')      ..  SemVer.new('v1.2.3-b'),
+        '>=1.2.3 <=1.2.5'      => SemVer.new('v1.2.3-')       ..  SemVer.new('v1.2.5'),
+        '1.2.3-a - 2.3.4-b'    => SemVer.new('v1.2.3-a')      ..  SemVer.new('v2.3.4-b'),
+        '1.2.3 - 2.3.4'        => SemVer.new('v1.2.3-')       ..  SemVer.new('v2.3.4'),
+        '~1.2.3'               => SemVer.new('v1.2.3-')       ... SemVer.new('v1.3.0-'),
+        '~1.2'                 => SemVer.new('v1.2.0-')       ... SemVer.new('v2.0.0-'),
+        '~1'                   => SemVer.new('v1.0.0-')       ... SemVer.new('v2.0.0-'),
+        '1.2.x'                => SemVer.new('v1.2.0')        ... SemVer.new('v1.3.0-'),
+        '1.x'                  => SemVer.new('v1.0.0')        ... SemVer.new('v2.0.0-'),
       }
 
       tests.each do |vstring, expected|
