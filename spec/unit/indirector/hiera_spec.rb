@@ -44,14 +44,14 @@ describe Puppet::Indirector::Hiera do
   end
   let(:facter_obj) { stub(:values => facts) }
 
-  it "should not be the default data_binding terminus" do
-    Puppet.settings[:data_binding_terminus].should_not == 'hiera'
+  it "should be the default data_binding terminus" do
+    Puppet.settings[:data_binding_terminus].should == 'hiera'
   end
 
   it "should raise an error if we don't have the hiera feature" do
     Puppet.features.expects(:hiera?).returns(false)
     lambda { @hiera_class.new }.should raise_error RuntimeError,
-      "Hiera terminus not supported without hiera gem"
+      "Hiera terminus not supported without hiera library"
   end
 
   describe "the behavior of the find method", :if => Puppet.features.hiera? do

@@ -5,8 +5,25 @@ task :gen_manpages do
   require 'puppet/face'
   require 'fileutils'
 
+  # TODO: this line is unfortunate.  In an ideal world, faces would serve
+  #  as a clear, well-defined entry-point into the code and could be
+  #  responsible for state management all on their own; this really should
+  #  not be necessary.  When we can, we should get rid of it.
+  #  --cprice 2012-05-16
+  Puppet.initialize_settings()
+
   helpface = Puppet::Face[:help, '0.0.1']
   manface  = Puppet::Face[:man, '0.0.1']
+
+  # TODO: This line is terrible.  The reason we need this here is because we
+  #  handle state initialization differently when we run via command line
+  #  (application.rb) than we do when we try to use Faces as library code.
+  #  This is bad, we need to come up with an official stance on what our
+  #  API is and what the entry points, so that we can make sure that
+  #  state initialization is consistent.  See:
+  # http://projects.puppetlabs.com/issues/14441
+  Puppet::Util::Instrumentation.init()
+
   sbins = Dir.glob(%w{sbin/*})
   bins  = Dir.glob(%w{bin/*})
   non_face_applications = helpface.legacy_applications
@@ -25,7 +42,7 @@ task :gen_manpages do
 #   IO.popen("#{ronn} #{ronn_args} > ./man/man5/puppet.conf.5", 'w') do |fh|
 #     fh.write %x{RUBYLIB=./lib:$RUBYLIB bin/puppetdoc --reference configuration}
 #   end
-  %x{RUBYLIB=./lib:$RUBYLIB bin/puppetdoc --reference configuration > ./man/man5/puppetconf.5.ronn}
+  %x{RUBYLIB=./lib:$RUBYLIB bin/puppet doc --reference configuration > ./man/man5/puppetconf.5.ronn}
   %x{#{ronn} #{ronn_args} ./man/man5/puppetconf.5.ronn}
   FileUtils.mv("./man/man5/puppetconf.5", "./man/man5/puppet.conf.5")
   FileUtils.rm("./man/man5/puppetconf.5.ronn")
@@ -49,9 +66,7 @@ task :gen_manpages do
   # Create face man pages
   faces.each do |face|
     File.open("./man/man8/puppet-#{face}.8.ronn", 'w') do |fh|
-      # For some reason no one understands at the moment, it duplicates termini,
-      # so we have to remove the dupes with a gsub.
-      fh.write manface.man("#{face}", {:render_as => :s}).gsub(/^(\* `[^`]+`)\n\1/, '\1')
+      fh.write manface.man("#{face}")
     end
 
     %x{#{ronn} #{ronn_args} ./man/man8/puppet-#{face}.8.ronn}
