@@ -1,3 +1,9 @@
+puppet (3.0.0-0.1rc1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * Imported Upstream version 3.0.0rc1
+
+ -- Matthaus Litteken <matthaus@puppetlabs.com>  Thu, 17 May 2012 22:00:54 +0000
+
 puppet (3.0.0-0.1alpha1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
 
   * Imported Upstream version 3.0.0alpha1
