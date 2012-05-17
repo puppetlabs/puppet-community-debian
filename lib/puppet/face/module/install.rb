@@ -1,11 +1,11 @@
 # encoding: UTF-8
+require 'puppet/forge'
 
 Puppet::Face.define(:module, '1.0.0') do
   action(:install) do
-    summary "Install a module from a repository or release archive."
+    summary "Install a module from the Puppet Forge or a release archive."
     description <<-EOT
-      Installs a module from the Puppet Forge, from a release archive file
-      on-disk, or from a private Forge-like repository.
+      Installs a module from the Puppet Forge or from a release archive file.
 
       The specified module will be installed into the directory
       specified with the `--target-dir` option, which defaults to
@@ -119,7 +119,7 @@ Puppet::Face.define(:module, '1.0.0') do
     when_invoked do |name, options|
       Puppet::ModuleTool.set_option_defaults options
       Puppet.notice "Preparing to install into #{options[:target_dir]} ..."
-      Puppet::ModuleTool::Applications::Installer.run(name, options)
+      Puppet::ModuleTool::Applications::Installer.new(name, Puppet::Forge.new("PMT", self.version), options).run
     end
 
     when_rendering :console do |return_value, name, options|

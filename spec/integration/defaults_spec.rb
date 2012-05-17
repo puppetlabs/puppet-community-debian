@@ -121,7 +121,7 @@ describe "Puppet defaults" do
 
   [:modulepath, :factpath].each do |setting|
     it "should configure '#{setting}' not to be a file setting, so multi-directory settings are acceptable" do
-      Puppet.settings.setting(setting).should be_instance_of(Puppet::Util::Settings::PathSetting)
+      Puppet.settings.setting(setting).should be_instance_of(Puppet::Settings::PathSetting)
     end
   end
 
@@ -317,8 +317,8 @@ describe "Puppet defaults" do
       Puppet.settings[:data_binding_terminus].should_not be_nil
     end
 
-    it "should be set to none by default" do
-      Puppet.settings[:data_binding_terminus].should == 'none'
+    it "should be set to hiera by default" do
+      Puppet.settings[:data_binding_terminus].should == 'hiera'
     end
   end
 end

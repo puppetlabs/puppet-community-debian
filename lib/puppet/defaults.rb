@@ -229,7 +229,7 @@ module Puppet
       :desc       => "Where to find information about nodes.",
     },
     :data_binding_terminus => {
-      :default => "none",
+      :default => "hiera",
       :desc    => "Where to retrive information about data.",
     },
     :hiera_config => {
@@ -303,7 +303,7 @@ module Puppet
         :default  => false,
         :type     => :boolean,
         :desc     => "Whether to use a queueing system to provide asynchronous database integration.
-      Requires that `puppetqd` be running and that 'PSON' support for ruby be installed.",
+      Requires that `puppet queue` be running and that 'PSON' support for ruby be installed.",
         :hook     => proc do |value|
           if value
             # This reconfigures the terminii for Node, Facts, and Catalog
@@ -684,7 +684,7 @@ EOT
     define_settings(:application,
       :config_file_name => {
           :type     => :string,
-          :default  => Puppet::Util::Settings.default_config_file_name,
+          :default  => Puppet::Settings.default_config_file_name,
           :desc     => "The name of the puppet config file.",
       },
       :config => {
@@ -966,7 +966,7 @@ EOT
       :desc => "The server to which the puppet agent should connect"
     },
     :use_srv_records => {
-      :default    => true,
+      :default    => false,
       :type       => :boolean,
       :desc       => "Whether the server will search for SRV records in DNS for the current domain.",
     },
