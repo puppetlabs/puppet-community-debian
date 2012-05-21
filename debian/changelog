@@ -1,3 +1,9 @@
+puppet (3.0.0-0.1rc1puppetlabs2) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * Hiera 0.99+1.0.0rc1 < 0.99.0, so changing 0.99.0 to 0.99
+
+ -- Matthaus Litteken <matthaus@puppetlabs.com>  Mon, 21 May 2012 16:53:13 +0000
+
 puppet (3.0.0-0.1rc1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
 
   * Imported Upstream version 3.0.0rc1
