@@ -1,3 +1,9 @@
+puppet (2.7.16-2puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
+
+  * Combine logrotate configurations for puppetmaster and puppet to resolve duplicate log entry errors
+
+ -- William Hopper <whopper@puppetlabs.com>  Mon, 18 Jun 2012 17:33:00 +0000
+
 puppet (2.7.16-1puppetlabs1) hardy jaunty karmic lucid maverick natty oneiric unstable lenny sid squeeze wheezy precise; urgency=low
 
   * Imported Upstream version 2.7.16
