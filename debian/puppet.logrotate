@@ -5,7 +5,7 @@
   rotate 4
   
   postrotate
-    [ -e /etc/init.d/puppetmaster ] && /etc/init.d/puppetmaster restart >/dev/null 2>&1 || true
+    pkill -USR2 -u puppet -f 'puppet master' || true
     [ -e /etc/init.d/puppet ] && /etc/init.d/puppet reload > /dev/null 2>&1 || true
   endscript
 }
