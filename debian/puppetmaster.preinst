@@ -9,6 +9,7 @@ if dpkg-maintscript-helper supports rm_conffile 2>/dev/null; then
     dpkg-maintscript-helper rm_conffile \
         /etc/logrotate.d/puppetmaster puppetmaster -- "$@"
 
+
 # For systems with dpkg < 1.15.7-2
 else
 
@@ -16,5 +17,6 @@ else
         rm /etc/logrotate.d/puppetmaster || true
     fi
 fi
+
 
 #DEBHELPER#
