@@ -202,7 +202,7 @@ Puppet::Type.newtype(:file) do
       whose content doesn't match what the `source` or `content` attribute
       specifies.  Setting this to false allows file resources to initialize files
       without overwriting future changes.  Note that this only affects content;
-      Puppet will still manage ownership and permissions."
+      Puppet will still manage ownership and permissions. Defaults to `true`."
     newvalues(:true, :false)
     aliasvalue(:yes, :true)
     aliasvalue(:no, :false)
@@ -437,7 +437,7 @@ Puppet::Type.newtype(:file) do
     # from it.
     unless self[:ensure]
       if self[:target]
-        self[:ensure] = :symlink
+        self[:ensure] = :link
       elsif self[:content]
         self[:ensure] = :file
       end
@@ -723,6 +723,8 @@ Puppet::Type.newtype(:file) do
     @stat = begin
       ::File.send(method, self[:path])
     rescue Errno::ENOENT => error
+      nil
+    rescue Errno::ENOTDIR => error
       nil
     rescue Errno::EACCES => error
       warning "Could not stat; permission denied"
