@@ -107,8 +107,8 @@ class Puppet::Util::Autoload
       name = File.basename(file).chomp(".rb").intern
       next if loaded?(name)
       begin
-        Kernel.require file
         loaded(name, file)
+        Kernel.require file
       rescue SystemExit,NoMemoryError
         raise
       rescue Exception => detail
@@ -128,9 +128,11 @@ class Puppet::Util::Autoload
   end
 
   def module_directories(env=nil)
-    # We have to require this late in the process because otherwise we might have
-    # load order issues.
-    require 'puppet/node/environment'
+    # We have to require this late in the process because otherwise we might
+    # have load order issues. Since require is much slower than defined?, we
+    # can skip that - and save some 2,155 invocations of require in my real
+    # world testing. --daniel 2012-07-10
+    require 'puppet/node/environment' unless defined?(Puppet::Node::Environment)
 
     real_env = Puppet::Node::Environment.new(env)
 
