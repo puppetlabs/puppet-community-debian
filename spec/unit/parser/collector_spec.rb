@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'puppet/rails'
 require 'puppet/parser/collector'
@@ -53,6 +53,7 @@ describe Puppet::Parser::Collector, "when collecting specific virtual resources"
     @scope = mock 'scope'
     @vquery = mock 'vquery'
     @equery = mock 'equery'
+    @compiler = mock 'compiler'
 
     @collector = Puppet::Parser::Collector.new(@scope, "resource_type", @equery, @vquery, :virtual)
   end
@@ -266,7 +267,7 @@ describe Puppet::Parser::Collector, "when collecting exported resources", :if =>
 
   before do
     @compiler = Puppet::Parser::Compiler.new(Puppet::Node.new("mynode"))
-    @scope = Puppet::Parser::Scope.new :compiler => @compiler
+    @scope = Puppet::Parser::Scope.new @compiler
     @resource_type = "notify"
     @equery = ["title", "!=", ""]
     @vquery = proc { |r| true }

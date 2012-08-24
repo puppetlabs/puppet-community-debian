@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/transaction/event'
@@ -122,7 +122,7 @@ describe Puppet::Transaction::Event do
                                              :message => "Help I'm trapped in a spec test",
                                              :name => :mode_changed, :previous_value => 6, :property => :mode,
                                              :status => 'success')
-      event.to_yaml_properties.should == Puppet::Transaction::Event::YAML_ATTRIBUTES.sort
+      event.to_yaml_properties.should =~ Puppet::Transaction::Event::YAML_ATTRIBUTES
     end
   end
 end

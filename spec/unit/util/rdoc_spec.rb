@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/util/rdoc'
@@ -8,8 +8,9 @@ describe Puppet::Util::RDoc do
   it "should fail with a clear error without RDoc 1.*" do
     Puppet.features.stubs(:rdoc1?).returns(false)
 
-    expect { Puppet::Util::RDoc.rdoc("output", []) }.
-      should raise_error(/the version of RDoc .* is not supported/)
+    expect {
+      Puppet::Util::RDoc.rdoc("output", [])
+    }.to raise_error(/the version of RDoc .* is not supported/)
   end
 
   describe "when generating RDoc HTML documentation", :if => Puppet.features.rdoc1? do
@@ -67,8 +68,14 @@ describe Puppet::Util::RDoc do
       Puppet::Util::RDoc.rdoc("myoutputdir", [])
     end
 
-    it "should tell RDoc to exclude .pp files under any modules/<mod>/files section" do
-      @rdoc.expects(:document).with { |args| args.include?("--exclude") and args.include?("/modules/[^/]*/files/.*\.pp$") }
+    it "should tell RDoc to exclude all files under any modules/<mod>/files section" do
+      @rdoc.expects(:document).with { |args| args.include?("--exclude") and args.include?("/modules/[^/]*/files/.*$") }
+
+      Puppet::Util::RDoc.rdoc("myoutputdir", [])
+    end
+
+    it "should tell RDoc to exclude all files under any modules/<mod>/templates section" do
+      @rdoc.expects(:document).with { |args| args.include?("--exclude") and args.include?("/modules/[^/]*/templates/.*$") }
 
       Puppet::Util::RDoc.rdoc("myoutputdir", [])
     end

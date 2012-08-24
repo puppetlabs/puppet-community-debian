@@ -1,4 +1,5 @@
 require 'puppet/util/docs'
+require 'puppet/util/methodhelper'
 require 'puppet/indirector/envelope'
 require 'puppet/indirector/request'
 require 'puppet/util/instrumentation/instrumentable'
@@ -7,8 +8,12 @@ require 'puppet/util/instrumentation/instrumentable'
 # back-ends.  Each indirection has a set of associated terminus classes,
 # each of which is a subclass of Puppet::Indirector::Terminus.
 class Puppet::Indirector::Indirection
+  include Puppet::Util::MethodHelper
   include Puppet::Util::Docs
   extend Puppet::Util::Instrumentation::Instrumentable
+
+  attr_accessor :name, :model
+  attr_reader :termini
 
   probe :find, :label => Proc.new { |parent, key, *args| "find_#{parent.name}_#{parent.terminus_class}" }, :data => Proc.new { |parent, key, *args| { :key => key }}
   probe :save, :label => Proc.new { |parent, key, *args| "save_#{parent.name}_#{parent.terminus_class}" }, :data => Proc.new { |parent, key, *args| { :key => key }}
@@ -35,10 +40,6 @@ class Puppet::Indirector::Indirection
     return nil unless match = @@indirections.find { |i| i.name == name }
     match.model
   end
-
-  attr_accessor :name, :model
-
-  attr_reader :termini
 
   # Create and return our cache terminus.
   def cache
@@ -109,13 +110,7 @@ class Puppet::Indirector::Indirection
     end
 
     # This is currently only used for cache_class and terminus_class.
-    options.each do |name, value|
-      begin
-        send(name.to_s + "=", value)
-      rescue NoMethodError
-        raise ArgumentError, "#{name} is not a valid Indirection parameter"
-      end
-    end
+    set_options(options)
   end
 
   # Set up our request object.

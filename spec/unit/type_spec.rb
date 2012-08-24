@@ -1,11 +1,10 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 
-describe Puppet::Type do
+describe Puppet::Type, :unless => Puppet.features.microsoft_windows? do
   include PuppetSpec::Files
 
-  pending("porting to Windows", :if => Puppet.features.microsoft_windows?) do
   it "should be Comparable" do
     a = Puppet::Type.type(:notify).new(:name => "a")
     b = Puppet::Type.type(:notify).new(:name => "b")
@@ -15,21 +14,21 @@ describe Puppet::Type do
       this.sort.should == [a, b, c]
     end
 
-    a.should be < b
-    a.should be < c
-    b.should be > a
-    b.should be < c
-    c.should be > a
-    c.should be > b
+    a.must be < b
+    a.must be < c
+    b.must be > a
+    b.must be < c
+    c.must be > a
+    c.must be > b
 
-    [a, b, c].each {|x| a.should be <= x }
-    [a, b, c].each {|x| c.should be >= x }
+    [a, b, c].each {|x| a.must be <= x }
+    [a, b, c].each {|x| c.must be >= x }
 
-    b.should be_between(a, c)
+    b.must be_between(a, c)
   end
 
   it "should consider a parameter to be valid if it is a valid parameter" do
-    Puppet::Type.type(:mount).should be_valid_parameter(:path)
+    Puppet::Type.type(:mount).should be_valid_parameter(:name)
   end
 
   it "should consider a parameter to be valid if it is a valid property" do
@@ -65,7 +64,7 @@ describe Puppet::Type do
   end
 
   it "should have a method for setting default values for resources" do
-    Puppet::Type.type(:mount).new(:name => "foo").should respond_to(:set_default)
+    Puppet::Type.type(:mount).new(:name => "foo").must respond_to(:set_default)
   end
 
   it "should do nothing for attributes that have no defaults and no specified value" do
@@ -73,7 +72,7 @@ describe Puppet::Type do
   end
 
   it "should have a method for adding tags" do
-    Puppet::Type.type(:mount).new(:name => "foo").should respond_to(:tags)
+    Puppet::Type.type(:mount).new(:name => "foo").must respond_to(:tags)
   end
 
   it "should use the tagging module" do
@@ -99,11 +98,11 @@ describe Puppet::Type do
   end
 
   it "should have a method to know if the resource is exported" do
-    Puppet::Type.type(:mount).new(:name => "foo").should respond_to(:exported?)
+    Puppet::Type.type(:mount).new(:name => "foo").must respond_to(:exported?)
   end
 
   it "should have a method to know if the resource is virtual" do
-    Puppet::Type.type(:mount).new(:name => "foo").should respond_to(:virtual?)
+    Puppet::Type.type(:mount).new(:name => "foo").must respond_to(:virtual?)
   end
 
   it "should consider its version to be its catalog version" do
@@ -357,7 +356,7 @@ describe Puppet::Type do
     end
 
     it "should fail if any invalid attributes have been provided" do
-      lambda { Puppet::Type.type(:mount).new(:title => "/foo", :nosuchattr => "whatever") }.should raise_error(Puppet::Error)
+      expect { Puppet::Type.type(:mount).new(:title => "/foo", :nosuchattr => "whatever") }.to raise_error(Puppet::Error)
     end
 
     it "should set its name to the resource's title if the resource does not have a :name or namevar parameter set" do
@@ -367,7 +366,7 @@ describe Puppet::Type do
     end
 
     it "should fail if no title, name, or namevar are provided" do
-      lambda { Puppet::Type.type(:file).new(:atboot => true) }.should raise_error(Puppet::Error)
+      expect { Puppet::Type.type(:file).new(:atboot => true) }.to raise_error(Puppet::Error)
     end
 
     it "should set the attributes in the order returned by the class's :allattrs method" do
@@ -480,7 +479,7 @@ describe Puppet::Type do
     it "should fail if its provider is unsuitable" do
       @resource = Puppet::Type.type(:mount).new(:name => "foo", :fstype => "bar", :pass => 1, :ensure => :present)
       @resource.provider.class.expects(:suitable?).returns false
-      lambda { @resource.retrieve_resource }.should raise_error(Puppet::Error)
+      expect { @resource.retrieve_resource }.to raise_error(Puppet::Error)
     end
 
     it "should return a Puppet::Resource instance with its type and title set appropriately" do
@@ -604,24 +603,21 @@ describe Puppet::Type do
 
     it "should be suitable if its type doesn't use providers" do
       type.stubs(:paramclass).with(:provider).returns nil
-
-      resource.should be_suitable
+      resource.must be_suitable
     end
 
     it "should be suitable if it has a provider which is suitable" do
-      resource.should be_suitable
+      resource.must be_suitable
     end
 
     it "should not be suitable if it has a provider which is not suitable" do
       provider.class.stubs(:suitable?).returns false
-
       resource.should_not be_suitable
     end
 
     it "should be suitable if it does not have a provider and there is a default provider" do
       resource.stubs(:provider).returns nil
-
-      resource.should be_suitable
+      resource.must be_suitable
     end
 
     it "should not be suitable if it doesn't have a provider and there is not default provider" do
@@ -652,7 +648,7 @@ describe Puppet::Type do
         mk_resource_methods
       end
 
-      expect { type.instances.should == [] }.should_not raise_error
+      expect { type.instances.should == [] }.to_not raise_error
     end
 
     context "with a default provider" do
@@ -727,7 +723,6 @@ describe Puppet::Type do
       TestEnsurableType.should_not be_ensurable
     end
   end
-  end
 end
 
 describe Puppet::Type::RelationshipMetaparam do
@@ -742,10 +737,9 @@ describe Puppet::Type::RelationshipMetaparam do
   end
 
   describe "when munging relationships" do
-  pending("porting to Windows", :if => Puppet.features.microsoft_windows?) do
     before do
-      @path = make_absolute('/foo')
-      @resource = Puppet::Type.type(:mount).new :name => @path
+      @path = File.expand_path('/foo')
+      @resource = Puppet::Type.type(:file).new :name => @path
       @metaparam = Puppet::Type.metaparamclass(:require).new :resource => @resource
     end
 
@@ -757,7 +751,6 @@ describe Puppet::Type::RelationshipMetaparam do
     it "should turn any string into a Puppet::Resource" do
       @metaparam.munge("File[/ref]")[0].should be_instance_of(Puppet::Resource)
     end
-  end
   end
 
   it "should be able to validate relationships" do
@@ -776,17 +769,6 @@ describe Puppet::Type::RelationshipMetaparam do
     param.expects(:fail).with { |string| string.include?("Class[Test]") }
 
     param.validate_relationship
-  end
-end
-
-describe Puppet::Type.metaparamclass(:check) do
-  include PuppetSpec::Files
-
-  it "should warn and create an instance of ':audit'" do
-    file = Puppet::Type.type(:file).new :path => make_absolute('/foo')
-    file.expects(:warning)
-    file[:check] = :mode
-    file[:audit].should == [:mode]
   end
 end
 
@@ -816,7 +798,7 @@ describe Puppet::Type.metaparamclass(:audit) do
   end
 
   it "should fail if asked to audit an invalid property" do
-    lambda { @resource[:audit] = :foobar }.should raise_error(Puppet::Error)
+    expect { @resource[:audit] = :foobar }.to raise_error(Puppet::Error)
   end
 
   it "should create an attribute instance for each auditable property" do
@@ -858,8 +840,8 @@ describe Puppet::Type.metaparamclass(:audit) do
       type.newparam(:param) {}
       instance = type.new(:name => 'test')
 
-      expect { instance[:param] = true }.should_not raise_error
-      expect { instance["param"] = true }.should_not raise_error
+      expect { instance[:param] = true }.to_not raise_error
+      expect { instance["param"] = true }.to_not raise_error
       instance[:param].should == true
       instance["param"].should == true
     end
@@ -867,8 +849,8 @@ describe Puppet::Type.metaparamclass(:audit) do
     it "should work with meta-parameters" do
       instance = type.new(:name => 'test')
 
-      expect { instance[:noop] = true }.should_not raise_error
-      expect { instance["noop"] = true }.should_not raise_error
+      expect { instance[:noop] = true }.to_not raise_error
+      expect { instance["noop"] = true }.to_not raise_error
       instance[:noop].should == true
       instance["noop"].should == true
     end
@@ -877,8 +859,8 @@ describe Puppet::Type.metaparamclass(:audit) do
       type.newproperty(:property) {}
       instance = type.new(:name => 'test')
 
-      expect { instance[:property] = true }.should_not raise_error
-      expect { instance["property"] = true }.should_not raise_error
+      expect { instance[:property] = true }.to_not raise_error
+      expect { instance["property"] = true }.to_not raise_error
       instance.property(:property).must be
       instance.should(:property).must be_true
     end
@@ -900,31 +882,6 @@ describe Puppet::Type.metaparamclass(:audit) do
       instance[:two] = "whee"
       two = instance.property(:two)
       instance.properties.must == [one, two, three]
-    end
-
-    it "should handle parameter aliases correctly" do
-      type.newparam(:one) {}
-      type.newproperty(:two) {}
-
-      type.set_attr_alias :three => :one
-      type.attr_alias(:three).must == :one
-
-      type.set_attr_alias :four => :two
-      type.attr_alias(:four).must == :two
-
-      type.attr_alias(:name).must_not be
-
-      instance = type.new(:name => "my name")
-      instance.must be
-
-      instance[:three]       = "value three"
-      instance.value(:three).must == "value three"
-      instance.value(:one).must   == "value three"
-
-      instance[:four]              = "value four"
-      instance.should(:four).must == "value four"
-      instance.value(:four).must  == "value four"
-      instance.value(:two).must   == "value four"
     end
 
     it "newattr should handle required features correctly" do

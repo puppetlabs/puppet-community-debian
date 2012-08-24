@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 class CompilerTestResource
@@ -30,6 +30,14 @@ class CompilerTestResource
     @virtual
   end
 
+  def class?
+    false
+  end
+
+  def stage?
+    false
+  end
+
   def evaluate
   end
 
@@ -57,10 +65,10 @@ describe Puppet::Parser::Compiler do
     now = Time.now
     Time.stubs(:now).returns(now)
 
-    @node = Puppet::Node.new "testnode"
+    @node = Puppet::Node.new("testnode", :facts => Puppet::Node::Facts.new("facts", {}))
     @known_resource_types = Puppet::Resource::TypeCollection.new "development"
     @compiler = Puppet::Parser::Compiler.new(@node)
-    @scope = Puppet::Parser::Scope.new(:compiler => @compiler, :source => stub('source'))
+    @scope = Puppet::Parser::Scope.new(@compiler, :source => stub('source'))
     @scope_resource = Puppet::Parser::Resource.new(:file, "/my/file", :scope => @scope)
     @scope.resource = @scope_resource
     @compiler.environment.stubs(:known_resource_types).returns @known_resource_types
@@ -96,6 +104,24 @@ describe Puppet::Parser::Compiler do
     @compiler.add_class "two"
 
     @compiler.classlist.sort.should == %w{one two}.sort
+  end
+
+  it "should clear the thread local caches before compile" do
+    compiler = stub 'compiler'
+    Puppet::Parser::Compiler.expects(:new).with(@node).returns compiler
+    catalog = stub 'catalog'
+    compiler.expects(:compile).returns catalog
+    catalog.expects(:to_resource)
+
+    [:known_resource_types, :env_module_directories].each do |var|
+      Thread.current[var] = "rspec"
+    end
+
+    Puppet::Parser::Compiler.compile(@node)
+
+    [:known_resource_types, :env_module_directories].each do |var|
+      Thread.current[var].should == nil
+    end
   end
 
   describe "when initializing" do
@@ -416,8 +442,8 @@ describe Puppet::Parser::Compiler do
 
     it "should fail to add resources that conflict with existing resources" do
       path = make_absolute("/foo")
-      file1 = Puppet::Type.type(:file).new :path => path
-      file2 = Puppet::Type.type(:file).new :path => path
+      file1 = resource(:file, path)
+      file2 = resource(:file, path)
 
       @compiler.add_resource(@scope, file1)
       lambda { @compiler.add_resource(@scope, file2) }.should raise_error(Puppet::Resource::Catalog::DuplicateResourceError)

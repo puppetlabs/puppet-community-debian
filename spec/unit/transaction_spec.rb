@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/transaction'
@@ -216,14 +216,14 @@ describe Puppet::Transaction do
       @transaction.eval_generate(resource)
 
       @filenames.each do |file|
-        @transaction.catalog.resource(:file, file).should be_a(Puppet::Type.type(:file))
+        @transaction.catalog.resource(:file, file).must be_a(Puppet::Type.type(:file))
       end
     end
 
     it "should add a sentinel whit for the resource" do
       @transaction.eval_generate(resource)
 
-      find_vertex(:whit, "completed_#{path}").should be_a(Puppet::Type.type(:whit))
+      find_vertex(:whit, "completed_#{path}").must be_a(Puppet::Type.type(:whit))
     end
 
     it "should replace dependencies on the resource with dependencies on the sentinel" do
@@ -519,7 +519,7 @@ describe Puppet::Transaction do
   describe "when generating resources before traversal" do
     let(:catalog) { Puppet::Resource::Catalog.new }
     let(:transaction) { Puppet::Transaction.new(catalog) }
-    let(:generator) { Puppet::Type.type(:notify).create :title => "generator" }
+    let(:generator) { Puppet::Type.type(:notify).new :title => "generator" }
     let(:generated) do
       %w[a b c].map { |name| Puppet::Type.type(:notify).new(:name => name) }
     end
@@ -558,7 +558,7 @@ describe Puppet::Transaction do
       transaction.add_dynamically_generated_resources
 
       generated.each do |res|
-        res.should be_tagged(generator.tags)
+        res.must be_tagged(generator.tags)
       end
     end
   end
@@ -667,8 +667,8 @@ describe Puppet::Transaction do
   describe "when prefetching" do
     let(:catalog) { Puppet::Resource::Catalog.new }
     let(:transaction) { Puppet::Transaction.new(catalog) }
-    let(:resource) { Puppet::Type.type(:sshkey).create :title => "foo", :name => "bar", :type => :dsa, :key => "eh", :provider => :parsed }
-    let(:resource2) { Puppet::Type.type(:package).create :title => "blah", :provider => "apt" }
+    let(:resource) { Puppet::Type.type(:sshkey).new :title => "foo", :name => "bar", :type => :dsa, :key => "eh", :provider => :parsed }
+    let(:resource2) { Puppet::Type.type(:package).new :title => "blah", :provider => "apt" }
 
     before :each do
       catalog.add_resource resource
@@ -722,7 +722,7 @@ describe Puppet::Transaction do
     end
 
     it "should prefetch resources without a provider if prefetching the default provider" do
-      other = Puppet::Type.type(:sshkey).create :name => "other"
+      other = Puppet::Type.type(:sshkey).new :name => "other"
 
       other.instance_variable_set(:@provider, nil)
 
@@ -801,17 +801,17 @@ describe Puppet::Transaction, " when determining tags" do
   end
 
   it "should default to the tags specified in the :tags setting" do
-    Puppet.expects(:[]).with(:tags).returns("one")
+    Puppet[:tags] = "one"
     @transaction.tags.should == %w{one}
   end
 
   it "should split tags based on ','" do
-    Puppet.expects(:[]).with(:tags).returns("one,two")
+    Puppet[:tags] = "one,two"
     @transaction.tags.should == %w{one two}
   end
 
   it "should use any tags set after creation" do
-    Puppet.expects(:[]).with(:tags).never
+    Puppet[:tags] = ""
     @transaction.tags = %w{one two}
     @transaction.tags.should == %w{one two}
   end

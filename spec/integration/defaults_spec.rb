@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/defaults'
@@ -15,7 +15,7 @@ describe "Puppet defaults" do
 
   describe "when setting the :certname" do
     it "should fail if the certname is not downcased" do
-      lambda { Puppet.settings[:certname] = "Host.Domain.Com" }.should raise_error(ArgumentError)
+      expect { Puppet.settings[:certname] = "Host.Domain.Com" }.to raise_error(ArgumentError)
     end
   end
 
@@ -43,19 +43,12 @@ describe "Puppet defaults" do
 
   describe "when :certdnsnames is set" do
     it "should not fail" do
-      expect { Puppet[:certdnsnames] = 'fred:wilma' }.should_not raise_error
+      expect { Puppet[:certdnsnames] = 'fred:wilma' }.to_not raise_error
     end
 
     it "should warn the value is ignored" do
       Puppet.expects(:warning).with {|msg| msg =~ /CVE-2011-3872/ }
       Puppet[:certdnsnames] = 'fred:wilma'
-    end
-  end
-
-  describe "when configuring the :crl" do
-    it "should warn if :cacrl is set to false" do
-      Puppet.expects(:warning)
-      Puppet.settings[:cacrl] = 'false'
     end
   end
 
@@ -153,7 +146,7 @@ describe "Puppet defaults" do
 
     it "should not set the Catalog cache class to :store_configs if asynchronous storeconfigs is enabled" do
       Puppet::Resource::Catalog.indirection.expects(:cache_class=).with(:store_configs).never
-      Puppet.settings.expects(:value).with(:async_storeconfigs).returns true
+      Puppet.settings[:async_storeconfigs] = true
       Puppet.settings[:storeconfigs] = true
     end
 
@@ -226,21 +219,10 @@ describe "Puppet defaults" do
       Puppet.settings[:report_port].should == "1234"
     end
 
-    it "should set report_server when reportserver is set" do
-      Puppet.settings[:reportserver] = "reportserver"
-      Puppet.settings[:report_server].should == "reportserver"
-    end
-
     it "should use report_port when set" do
       Puppet.settings[:masterport] = "1234"
       Puppet.settings[:report_port] = "5678"
       Puppet.settings[:report_port].should == "5678"
-    end
-
-    it "should prefer report_server over reportserver" do
-      Puppet.settings[:reportserver] = "reportserver"
-      Puppet.settings[:report_server] = "report_server"
-      Puppet.settings[:report_server].should == "report_server"
     end
   end
 
@@ -291,7 +273,7 @@ describe "Puppet defaults" do
       end
 
       it "should raise an error if set to true" do
-        lambda { Puppet.settings[:daemonize] = true }.should raise_error(/Cannot daemonize on Windows/)
+        expect { Puppet.settings[:daemonize] = true }.to raise_error(/Cannot daemonize on Windows/)
       end
     end
   end

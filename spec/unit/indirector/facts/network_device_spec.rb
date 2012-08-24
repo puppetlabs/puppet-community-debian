@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/util/network_device'
@@ -59,14 +59,6 @@ describe Puppet::Node::Facts::NetworkDevice do
       facts = Puppet::Node::Facts.new("foo")
       Puppet::Node::Facts.expects(:new).returns facts
       facts.expects(:stringify)
-
-      @device.find(@request)
-    end
-
-    it "should call the downcase hook" do
-      facts = Puppet::Node::Facts.new("foo")
-      Puppet::Node::Facts.expects(:new).returns facts
-      facts.expects(:downcase_if_necessary)
 
       @device.find(@request)
     end

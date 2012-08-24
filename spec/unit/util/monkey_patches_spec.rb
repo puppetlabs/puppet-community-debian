@@ -1,8 +1,15 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/util/monkey_patches'
 
+
+describe Symbol do
+  it "should return self from #intern" do
+    symbol = :foo
+    symbol.should equal symbol.intern
+  end
+end
 
 
 describe "yaml deserialization" do

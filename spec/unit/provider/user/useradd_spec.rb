@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 provider_class = Puppet::Type.type(:user).provider(:useradd)
@@ -87,6 +87,13 @@ describe provider_class do
     it "should return an array with -m flag if home is managed" do
       @resource.stubs(:managehome?).returns true
       @provider.check_manage_home.must == ["-m"]
+    end
+    
+    it "should return an array with -r flag if home is managed" do
+      @resource.stubs(:managehome?).returns true
+      @resource.stubs(:ensure) == :absent
+      @provider.stubs(:command).returns("userdel")
+      @provider.deletecmd.must == ["userdel", "-r", "fakeval"]
     end
 
     it "should return an array with -M if home is not managed and on Redhat" do

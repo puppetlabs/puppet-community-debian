@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 provider_class = Puppet::Type.type(:package).provider(:gem)
@@ -93,6 +93,18 @@ describe provider_class do
       # (particularly local) where it makes sense for it to return an array.  That doesn't make
       # sense for '#latest', though.
       provider.class.expects(:gemlist).with({ :justme => 'myresource'}).returns({
+          :name     => 'myresource',
+          :ensure   => ["3.0"],
+          :provider => :gem,
+          })
+      provider.latest.should == "3.0"
+    end
+
+    it "should list from the specified source repository" do
+      resource[:source] = "http://foo.bar.baz/gems"
+      provider.class.expects(:gemlist).
+        with({:justme => 'myresource', :source => "http://foo.bar.baz/gems"}).
+        returns({
           :name     => 'myresource',
           :ensure   => ["3.0"],
           :provider => :gem,

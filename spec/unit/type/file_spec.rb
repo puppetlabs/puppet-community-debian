@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 describe Puppet::Type.type(:file) do
@@ -36,22 +36,12 @@ describe Puppet::Type.type(:file) do
         file[:path].should == "/"
       end
 
-      it "should accept a double-slash at the start of the path" do
+      it "should accept and preserve a double-slash at the start of the path" do
         expect {
           file[:path] = "//tmp/xxx"
-          # REVISIT: This should be wrong, later.  See the next test.
-          # --daniel 2011-01-31
-          file[:path].should == '/tmp/xxx'
-        }.should_not raise_error
+          file[:path].should == '//tmp/xxx'
+        }.to_not raise_error
       end
-
-      # REVISIT: This is pending, because I don't want to try and audit the
-      # entire codebase to make sure we get this right.  POSIX treats two (and
-      # exactly two) '/' characters at the start of the path specially.
-      #
-      # See sections 3.2 and 4.11, which allow DomainOS to be all special like
-      # and still have the POSIX branding and all. --daniel 2011-01-31
-      it "should preserve the double-slash at the start of the path"
     end
 
     describe "on Windows systems", :if => Puppet.features.microsoft_windows? do
@@ -76,7 +66,7 @@ describe Puppet::Type.type(:file) do
       end
 
       it "should not accept a drive letter without a slash" do
-        lambda { file[:path] = "X:" }.should raise_error(/File paths must be fully qualified/)
+        expect { file[:path] = "X:" }.to raise_error(/File paths must be fully qualified/)
       end
 
       describe "when using UNC filenames", :if => Puppet.features.microsoft_windows? do
@@ -144,23 +134,22 @@ describe Puppet::Type.type(:file) do
       file[:recurse].should be_false
     end
 
-    [true, "true", 10, "inf", "remote"].each do |value|
+    [true, "true", "inf", "remote"].each do |value|
       it "should consider #{value} to enable recursion" do
         file[:recurse] = value
         file[:recurse].should be_true
       end
     end
 
-    [false, "false", 0].each do |value|
+    it "should not allow numbers" do
+      expect { file[:recurse] = 10 }.to raise_error(Puppet::Error, "Parameter recurse failed: Invalid recurse value 10")
+    end
+
+    [false, "false"].each do |value|
       it "should consider #{value} to disable recursion" do
         file[:recurse] = value
         file[:recurse].should be_false
       end
-    end
-
-    it "should warn if recurse is specified as a number" do
-      Puppet.expects(:deprecation_warning).with("Setting recursion depth with the recurse parameter is now deprecated, please use recurselimit")
-      file[:recurse] = 3
     end
   end
 
@@ -195,14 +184,6 @@ describe Puppet::Type.type(:file) do
         file[:replace] = value
         file[:replace].should == :false
       end
-    end
-  end
-
-  describe "#[]" do
-    it "should raise an exception" do
-      expect do
-        described_class['anything']
-      end.to raise_error("Global resource access is deprecated")
     end
   end
 
@@ -432,7 +413,7 @@ describe Puppet::Type.type(:file) do
 
     it "should set a desired 'ensure' value if none is set and 'target' is set" do
       file = described_class.new(:path => path, :target => File.expand_path(__FILE__))
-      file[:ensure].should == :symlink
+      file[:ensure].should == :link
     end
   end
 
@@ -464,7 +445,7 @@ describe Puppet::Type.type(:file) do
     it "should create a new resource relative to the parent" do
       child = file.newchild('bar')
 
-      child.should be_a(described_class)
+      child.must be_a(described_class)
       child[:path].should == File.join(file[:path], 'bar')
     end
 
@@ -1111,6 +1092,15 @@ describe Puppet::Type.type(:file) do
       File.chmod(0777, dir)
     end
 
+    it "should return nil if parts of path are no directories" do
+      regular_file = tmpfile('ENOTDIR_test')
+      FileUtils.touch(regular_file)
+      impossible_child = File.join(regular_file, 'some_file')
+
+      file[:path] = impossible_child
+      file.stat.should be_nil
+    end
+
     it "should return the stat instance" do
       file.stat.should be_a(File::Stat)
     end
@@ -1132,7 +1122,7 @@ describe Puppet::Type.type(:file) do
       property = stub('content_property', :actual_content => "something", :length => "something".length)
       file.stubs(:property).with(:content).returns(property)
 
-      lambda { file.write(:content) }.should raise_error(Puppet::Error)
+      expect { file.write(:content) }.to raise_error(Puppet::Error)
     end
 
     it "should delegate writing to the content property" do
@@ -1160,7 +1150,7 @@ describe Puppet::Type.type(:file) do
         property = stub('content_property', :actual_content => "something", :length => "something".length, :write => 'checksum_a')
         file.stubs(:property).with(:content).returns(property)
 
-        lambda { file.write :NOTUSED }.should raise_error(Puppet::Error)
+        expect { file.write :NOTUSED }.to raise_error(Puppet::Error)
       end
     end
 
@@ -1174,7 +1164,7 @@ describe Puppet::Type.type(:file) do
         property = stub('content_property', :actual_content => "something", :length => "something".length, :write => 'checksum_a')
         file.stubs(:property).with(:content).returns(property)
 
-        lambda { file.write :NOTUSED }.should_not raise_error(Puppet::Error)
+        expect { file.write :NOTUSED }.to_not raise_error(Puppet::Error)
       end
     end
   end
@@ -1259,7 +1249,7 @@ describe Puppet::Type.type(:file) do
     describe "target" do
       it "should require file resource when specified with the target property" do
         file = described_class.new(:path => File.expand_path("/foo"), :ensure => :directory)
-        link = described_class.new(:path => File.expand_path("/bar"), :ensure => :symlink, :target => File.expand_path("/foo"))
+        link = described_class.new(:path => File.expand_path("/bar"), :ensure => :link, :target => File.expand_path("/foo"))
         catalog.add_resource file
         catalog.add_resource link
         reqs = link.autorequire
@@ -1280,7 +1270,7 @@ describe Puppet::Type.type(:file) do
       end
 
       it "should not require target if target is not managed" do
-        link = described_class.new(:path => File.expand_path('/foo'), :ensure => :symlink, :target => '/bar')
+        link = described_class.new(:path => File.expand_path('/foo'), :ensure => :link, :target => '/bar')
         catalog.add_resource link
         link.autorequire.size.should == 0
       end
@@ -1419,7 +1409,7 @@ describe Puppet::Type.type(:file) do
 
         it 'should validate' do
 
-          lambda { file.validate }.should_not raise_error
+          expect { file.validate }.to_not raise_error
         end
       end
     end
@@ -1430,7 +1420,7 @@ describe Puppet::Type.type(:file) do
       end
 
       it 'should raise an exception when validating' do
-        lambda { file.validate }.should raise_error(/You cannot specify source when using checksum 'none'/)
+        expect { file.validate }.to raise_error(/You cannot specify source when using checksum 'none'/)
       end
     end
   end
@@ -1447,7 +1437,7 @@ describe Puppet::Type.type(:file) do
         end
 
         it 'should validate' do
-          lambda { file.validate }.should_not raise_error
+          expect { file.validate }.to_not raise_error
         end
       end
     end
@@ -1457,7 +1447,7 @@ describe Puppet::Type.type(:file) do
         it 'should raise an exception when validating' do
           file[:checksum] = checksum_type
 
-          lambda { file.validate }.should raise_error(/You cannot specify content when using checksum '#{checksum_type}'/)
+          expect { file.validate }.to raise_error(/You cannot specify content when using checksum '#{checksum_type}'/)
         end
       end
     end

@@ -73,6 +73,11 @@ module Puppet::Test
       $old_load_path = $LOAD_PATH.dup
 
       initialize_settings_before_each()
+
+      Puppet::Node::Environment.clear
+      Puppet::Parser::Functions.reset
+
+      Puppet.clear_deprecation_warnings
     end
 
     # Call this method once per test, after execution of each individual test.
@@ -80,7 +85,6 @@ module Puppet::Test
     def self.after_each_test()
       Puppet.settings.send(:clear_everything_for_tests)
 
-      Puppet::Node::Environment.clear
       Puppet::Util::Storage.clear
       Puppet::Util::ExecutionStub.reset
 
@@ -135,6 +139,7 @@ module Puppet::Test
           :confdir    => "/dev/null",
           :vardir     => "/dev/null",
           :rundir     => "/dev/null",
+          :hiera_config => "/dev/null",
       }
     end
     private_class_method :app_defaults_for_tests

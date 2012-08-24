@@ -98,11 +98,7 @@ autorequire that directory."
     end
 
     def self.state_name(name)
-      if other = @state_aliases[name]
-        other
-      else
-        name
-      end
+      @state_aliases[name.to_sym] || name.to_sym
     end
 
     newvalue :absent, :down => :destroy
@@ -183,6 +179,15 @@ autorequire that directory."
     def up?
       current_value = self.retrieve
       self.class.state_index(current_value) < self.class.state_index(self.should)
+    end
+
+    # We override the newvalue in the parent class. Thus the values that we get from the
+    # manifest are stored as they are and later compared to the current state of the instance,
+    # which is in symbol form. Hence we have to convert this to symbol here for now.
+    # TODO: fix this so that munging is no longer necessary. see also #15886
+
+    munge do |value|
+      value.intern
     end
   end
 
@@ -267,6 +272,29 @@ autorequire that directory."
 
     def configtext
       "set autoboot=#{self.should}"
+    end
+  end
+
+  newproperty(:path, :parent => ZoneConfigProperty) do
+    desc "The root of the zone's filesystem.  Must be a fully qualified
+      file name.  If you include `%s` in the path, then it will be
+      replaced with the zone's name.  Currently, you cannot use
+      Puppet to move a zone. Consequently this is a readonly property."
+
+    def configtext
+      "set zonepath=#{self.should}"
+    end
+
+    validate do |value|
+      raise ArgumentError, "The zone base must be fully qualified" unless value =~ /^\//
+    end
+
+    munge do |value|
+      if value =~ /%s/
+        value % @resource[:name]
+      else
+        value
+      end
     end
   end
 
@@ -374,27 +402,6 @@ autorequire that directory."
       so Puppet only checks for it at that time.}
   end
 
-  newparam(:path) do
-    desc "The root of the zone's filesystem.  Must be a fully qualified
-      file name.  If you include `%s` in the path, then it will be
-      replaced with the zone's name.  Currently, you cannot use
-      Puppet to move a zone."
-
-    validate do |value|
-      unless value =~ /^\//
-        raise ArgumentError, "The zone base must be fully qualified"
-      end
-    end
-
-    munge do |value|
-      if value =~ /%s/
-        value % @resource[:name]
-      else
-        value
-      end
-    end
-  end
-
   newparam(:create_args) do
     desc "Arguments to the `zonecfg` create command.  This can be used to create branded zones."
   end
@@ -440,22 +447,25 @@ autorequire that directory."
       self.fail "'#{ip}' is an invalid #{name}"
   end
 
-  validate do
-    value = self[:ip]
-    interface, address, defrouter = value.split(':')
-    if self[:iptype] == :shared
-      if (interface && address && defrouter.nil?) ||
-        (interface && address && defrouter)
-        validate_ip(address, "IP address")
-        validate_ip(defrouter, "default router")
-      else
-        self.fail "ip must contain interface name and ip address separated by a \":\""
-      end
-    else
-      self.fail "only interface may be specified when using exclusive IP stack: #{value}" unless interface && address.nil? && defrouter.nil?
+  def validate_exclusive(interface, address, router)
+    return if !interface.nil? and address.nil?
+    self.fail "only interface may be specified when using exclusive IP stack: #{interface}:#{address}"
+  end
+  def validate_shared(interface, address, router)
+    self.fail "ip must contain interface name and ip address separated by a \":\"" if interface.nil? or address.nil?
+    [address, router].each do |ip|
+      validate_ip(address, "IP address") unless ip.nil?
     end
+  end
 
-    self.fail "zone path is required" unless self[:path]
+  validate do
+    return unless self[:ip]
+    interface, address, router = self[:ip].split(':')
+    if self[:iptype] == :shared
+      validate_shared(interface, address, router)
+    else
+      validate_exclusive(interface, address, router)
+    end
   end
 
   def retrieve

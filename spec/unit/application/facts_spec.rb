@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'puppet/application/facts'
 
@@ -21,7 +21,7 @@ describe Puppet::Application::Facts do
 
     expect {
       expect { subject.run }.to exit_with 0
-    }.should have_printed(/object:Puppet::Node::Facts/)
+    }.to have_printed(/object:Puppet::Node::Facts/)
 
     @logs.should be_empty
   end
