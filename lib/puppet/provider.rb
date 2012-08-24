@@ -50,8 +50,8 @@ class Puppet::Provider
     Puppet::Util::Execution.execpipe(*args, &block)
   end
 
-  def self.execpipe(*args)
-    Puppet::Util::Execution.execpipe(*args)
+  def self.execpipe(*args, &block)
+    Puppet::Util::Execution.execpipe(*args, &block)
   end
 
   def execfail(*args)
@@ -64,7 +64,7 @@ class Puppet::Provider
   #########
 
   def self.command(name)
-    name = symbolize(name)
+    name = name.intern
 
     if defined?(@commands) and command = @commands[name]
       # nothing
@@ -123,9 +123,8 @@ class Puppet::Provider
   # @param [String] path The path to the executable for the command
   # @yield A block that configures the command (@see Puppet::Provider::Command) 
   def self.has_command(name, path, &block)
-    name = symbolize(name)
-    configuration = block_given? ? block : Proc.new {}
-    command = CommandDefiner.define(name, path, self, &configuration)
+    name = name.intern
+    command = CommandDefiner.define(name, path, self, &block)
 
     @commands[name] = command.executable
 
@@ -140,7 +139,7 @@ class Puppet::Provider
 
     def self.define(name, path, confiner, &block)
       definer = new(name, path, confiner)
-      definer.instance_eval &block
+      definer.instance_eval(&block) if block
       definer.command
     end
 
@@ -249,17 +248,9 @@ class Puppet::Provider
   # Create getter/setter methods for each property our resource type supports.
   # They all get stored in @property_hash.  This method is useful
   # for those providers that use prefetch and flush.
-  def self.mkmodelmethods
-    Puppet.deprecation_warning "Provider.mkmodelmethods is deprecated; use Provider.mk_resource_methods"
-    mk_resource_methods
-  end
-
-  # Create getter/setter methods for each property our resource type supports.
-  # They all get stored in @property_hash.  This method is useful
-  # for those providers that use prefetch and flush.
   def self.mk_resource_methods
     [resource_type.validproperties, resource_type.parameters].flatten.each do |attr|
-      attr = symbolize(attr)
+      attr = attr.intern
       next if attr == :name
       define_method(attr) do
         @property_hash[attr] || :absent
@@ -353,7 +344,7 @@ class Puppet::Provider
 
   # Get a parameter value.
   def get(param)
-    @property_hash[symbolize(param)] || :absent
+    @property_hash[param.intern] || :absent
   end
 
   def initialize(resource = nil)
@@ -384,7 +375,7 @@ class Puppet::Provider
   # Set passed params as the current values.
   def set(params)
     params.each do |param, value|
-      @property_hash[symbolize(param)] = value
+      @property_hash[param.intern] = value
     end
   end
 

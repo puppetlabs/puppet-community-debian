@@ -57,6 +57,7 @@ class Puppet::Node::Environment
 
   def self.clear
     @seen.clear
+    Thread.current[:environment] = nil
   end
 
   attr_reader :name
@@ -107,25 +108,38 @@ class Puppet::Node::Environment
     validate_dirs(dirs)
   end
 
-  # Return all modules from this environment.
+  # Return all modules from this environment, in the order they appear
+  # in the modulepath
   # Cache the list, because it can be expensive to create.
   cached_attr(:modules, Puppet[:filetimeout]) do
-    module_names =
-        modulepath.collect do |path|
-          module_names = Dir.entries(path)
-          Puppet.debug("Warning: Found directory named 'lib' in module path ('#{path}/lib'); unless " +
-              "you are expecting to load a module named 'lib', your module path may be set " +
-               "incorrectly.") if module_names.include?("lib")
-          module_names
-        end .flatten.uniq
+    module_references = []
+    seen_modules = {}
+    modulepath.each do |path|
+      Dir.entries(path).each do |name|
+        warn_about_mistaken_path(path, name)
+        next if module_references.include?(name)
+        if not seen_modules[name]
+          module_references << {:name => name, :path => File.join(path, name)}
+          seen_modules[name] = true
+        end
+      end
+    end
 
-    module_names.collect do |path|
+    module_references.collect do |reference|
       begin
-        Puppet::Module.new(path, :environment => self)
+        Puppet::Module.new(reference[:name], reference[:path], self)
       rescue Puppet::Module::Error => e
         nil
       end
     end.compact
+  end
+
+  def warn_about_mistaken_path(path, name)
+    if name == "lib"
+      Puppet.debug("Warning: Found directory named 'lib' in module path ('#{path}/lib'); unless " +
+          "you are expecting to load a module named 'lib', your module path may be set " +
+          "incorrectly.")
+    end
   end
 
   # Modules broken out by directory in the modulepath
@@ -134,10 +148,10 @@ class Puppet::Node::Environment
     modulepath.each do |path|
       Dir.chdir(path) do
         module_names = Dir.glob('*').select do |d|
-          FileTest.directory?(d) && (File.basename(d) =~ /^[\w]+([-]{1}[\w]+)*$/)
+          FileTest.directory?(d) && (File.basename(d) =~ /\A\w+(-\w+)*\Z/)
         end
         modules_by_path[path] = module_names.sort.map do |name|
-          Puppet::Module.new(name, :environment => self, :path => File.join(path, name))
+          Puppet::Module.new(name, File.join(path, name), self)
         end
       end
     end
@@ -182,13 +196,9 @@ class Puppet::Node::Environment
 
   def validate_dirs(dirs)
     dirs.collect do |dir|
-      unless Puppet::Util.absolute_path?(dir)
-        File.expand_path(File.join(Dir.getwd, dir))
-      else
-        dir
-      end
+      File.expand_path(dir)
     end.find_all do |p|
-      Puppet::Util.absolute_path?(p) && FileTest.directory?(p)
+      FileTest.directory?(p)
     end
   end
 

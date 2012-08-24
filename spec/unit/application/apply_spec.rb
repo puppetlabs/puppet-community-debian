@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/application/apply'
@@ -48,17 +48,6 @@ describe Puppet::Application::Apply do
       @apply.options.expects(:[]=).with(:logset,true)
 
       @apply.handle_logdest("console")
-    end
-
-    it "should deprecate --apply" do
-      Puppet.expects(:deprecation_warning).with do |arg|
-        arg.match(/--apply is deprecated/)
-      end
-
-      command_line = Puppet::Util::CommandLine.new('puppet', ['apply', '--apply', 'catalog.json'])
-      apply = Puppet::Application::Apply.new(command_line)
-      apply.stubs(:run_command)
-      apply.run
     end
   end
 
@@ -111,10 +100,6 @@ describe Puppet::Application::Apply do
       Puppet::Transaction::Report.indirection.expects(:cache_class=).with(:yaml)
 
       @apply.setup
-    end
-
-    it "should set pluginsource with no hostname" do
-      @apply.app_defaults[:pluginsource].should == 'puppet:///plugins'
     end
 
     it "should set default_file_terminus to `file_server` to be local" do
@@ -401,7 +386,7 @@ describe Puppet::Application::Apply do
         configurer = stub 'configurer'
         Puppet::Configurer.expects(:new).returns configurer
         configurer.expects(:run).
-          with(:catalog => "mycatalog", :skip_plugin_download => true)
+          with(:catalog => "mycatalog", :pluginsync => false)
 
         @apply.apply
       end
@@ -412,7 +397,7 @@ describe Puppet::Application::Apply do
     it "should call the configurer with the catalog" do
       catalog = "I am a catalog"
       Puppet::Configurer.any_instance.expects(:run).
-        with(:catalog => catalog, :skip_plugin_download => true)
+        with(:catalog => catalog, :pluginsync => false)
       @apply.send(:apply_catalog, catalog)
     end
   end

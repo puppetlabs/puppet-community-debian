@@ -90,7 +90,7 @@ class Puppet::Configurer
   end
 
   def get_facts(options)
-    download_plugins unless options[:skip_plugin_download]
+    download_plugins if options[:pluginsync]
 
     if Puppet::Resource::Catalog.indirection.terminus_class == :rest
       # This is a bit complicated.  We need the serialized and escaped facts,
@@ -144,7 +144,7 @@ class Puppet::Configurer
 
       if node = Puppet::Node.indirection.find(Puppet[:node_name_value], :environment => @environment, :ignore_cache => true)
         if node.environment.to_s != @environment
-          Puppet.warning "Local environment: \"#{@environment}\" doesn't match server specified node environment \"#{node.environment}\", changing."
+          Puppet.warning "Local environment: \"#{@environment}\" doesn't match server specified node environment \"#{node.environment}\", switching agent to \"#{node.environment}\"."
           @environment = node.environment.to_s
           fact_options = nil
         end
@@ -165,7 +165,7 @@ class Puppet::Configurer
         if tries > 3
           raise Puppet::Error, "Catalog environment didn't stabilize after #{tries} fetches, aborting run"
         end
-        Puppet.warning "Local environment: \"#{@environment}\" doesn't match server specified environment \"#{catalog.environment}\", restarting agent run with new environment"
+        Puppet.warning "Local environment: \"#{@environment}\" doesn't match server specified environment \"#{catalog.environment}\", restarting agent run with environment \"#{catalog.environment}\""
         @environment = catalog.environment
         return nil unless catalog = prepare_and_retrieve_catalog(options, fact_options)
         tries += 1
@@ -181,8 +181,9 @@ class Puppet::Configurer
       execute_postrun_command or return nil
     end
   ensure
-    # Make sure we forget the retained module_directories of any autoload
-    # we might have used.
+    # Between Puppet runs we need to forget the cached values.  This lets us
+    # pick up on new functions installed by gems or new modules being added
+    # without the daemon being restarted.
     Thread.current[:env_module_directories] = nil
 
     Puppet::Util::Log.close(report)

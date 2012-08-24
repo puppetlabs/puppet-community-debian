@@ -1,9 +1,8 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'puppet/face'
 
 describe "documentation of faces" do
-  pending("porting to Windows", :if => Puppet.features.microsoft_windows?) do
   it "should generate global help" do
     help = nil
     expect { help = Puppet::Face[:help, :current].help }.not_to raise_error
@@ -59,6 +58,5 @@ describe "documentation of faces" do
         its :copyright do should =~ /20\d{2}/ end
       end
     end
-  end
   end
 end

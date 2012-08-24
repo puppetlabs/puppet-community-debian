@@ -1,8 +1,6 @@
 # Windows Service Control Manager (SCM) provider
 
-require 'win32/service' if Puppet.features.microsoft_windows?
-
-Puppet::Type.type(:service).provide :windows do
+Puppet::Type.type(:service).provide :windows, :parent => :service do
 
   desc <<-EOT
     Support for Windows Service Control Manager (SCM). This provider can
@@ -17,6 +15,8 @@ Puppet::Type.type(:service).provide :windows do
   confine    :operatingsystem => :windows
 
   has_feature :refreshable
+
+  commands :net => 'net.exe'
 
   def enable
     w32ss = Win32::Service.configure( 'service_name' => @resource[:name], 'start_type' => Win32::Service::SERVICE_AUTO_START )
@@ -73,20 +73,15 @@ Puppet::Type.type(:service).provide :windows do
       end
     end
 
-    Win32::Service.start( @resource[:name] )
-  rescue Win32::Service::Error => detail
+    net(:start, @resource[:name])
+  rescue Puppet::ExecutionFailure => detail
     raise Puppet::Error.new("Cannot start #{@resource[:name]}, error was: #{detail}" )
   end
 
   def stop
-    Win32::Service.stop( @resource[:name] )
-  rescue Win32::Service::Error => detail
+    net(:stop, @resource[:name])
+  rescue Puppet::ExecutionFailure => detail
     raise Puppet::Error.new("Cannot stop #{@resource[:name]}, error was: #{detail}" )
-  end
-
-  def restart
-    self.stop
-    self.start
   end
 
   def status

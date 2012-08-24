@@ -1,6 +1,7 @@
 require 'monitor'
 require 'puppet/ssl/host'
 require 'puppet/ssl/certificate_request'
+require 'puppet/util'
 
 # The class that knows how to sign certificates.  It creates
 # a 'special' SSL::Host whose name is 'ca', thus indicating
@@ -92,7 +93,7 @@ class Puppet::SSL::CertificateAuthority
     return false if ['false', false].include?(auto)
     return true if ['true', true].include?(auto)
 
-    raise ArgumentError, "The autosign configuration '#{auto}' must be a fully qualified file" unless auto =~ /^\//
+    raise ArgumentError, "The autosign configuration '#{auto}' must be a fully qualified file" unless Puppet::Util.absolute_path?(auto)
     FileTest.exist?(auto) && auto
   end
 
@@ -301,6 +302,16 @@ class Puppet::SSL::CertificateAuthority
     if unknown_req and not unknown_req.empty?
       names = unknown_req.map {|x| x["oid"] }.sort.uniq.join(", ")
       raise CertificateSigningError.new(hostname), "CSR has request extensions that are not permitted: #{names}"
+    end
+
+    # Do not sign misleading CSRs
+    cn = csr.content.subject.to_a.assoc("CN")[1]
+    if hostname != cn
+      raise CertificateSigningError.new(hostname), "CSR subject common name #{cn.inspect} does not match expected certname #{hostname.inspect}"
+    end
+
+    if hostname !~ Puppet::SSL::Base::VALID_CERTNAME
+      raise CertificateSigningError.new(hostname), "CSR #{hostname.inspect} subject contains unprintable or non-ASCII characters"
     end
 
     # Wildcards: we don't allow 'em at any point.

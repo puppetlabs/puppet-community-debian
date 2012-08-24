@@ -59,7 +59,7 @@ class Puppet::Interface
         if current = Puppet::Interface::FaceCollection[name, :current]
           raise Puppet::Error, "Could not find version #{version} of #{name}"
         else
-          raise Puppet::Error, "Could not find Puppet Face #{name.inspect}"
+          raise Puppet::Error, "Could not find Puppet Face #{name.to_s}"
         end
       end
 
@@ -70,11 +70,6 @@ class Puppet::Interface
       Puppet::Interface::FaceCollection.get_action_for_face(name, action, version)
     end
   end
-
-  def set_default_format(format)
-    Puppet.deprecation_warning("set_default_format is deprecated (and ineffective); use render_as on your actions instead.")
-  end
-
 
   ########################################################################
   # Documentation.  We currently have to rewrite both getters because we share

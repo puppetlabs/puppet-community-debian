@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/configurer/downloader'
@@ -26,7 +26,7 @@ describe Puppet::Configurer::Downloader do
   end
 
   it "should use the configtimeout, converted to an integer, as its timeout" do
-    Puppet.settings.expects(:value).with(:configtimeout).returns "50"
+    Puppet[:configtimeout] = "50"
     Puppet::Configurer::Downloader.timeout_interval.should == 50
   end
 

@@ -5,7 +5,7 @@ Puppet::Type.type(:user).provide :user_role_add, :parent => :useradd, :source =>
 
   desc "User and role management on Solaris, via `useradd` and `roleadd`."
 
-  defaultfor :operatingsystem => :solaris
+  defaultfor :osfamily => :solaris
 
   commands :add => "useradd", :delete => "userdel", :modify => "usermod", :password => "passwd", :role_add => "roleadd", :role_delete => "roledel", :role_modify => "rolemod"
   options :home, :flag => "-d", :method => :dir
@@ -173,7 +173,8 @@ Puppet::Type.type(:user).provide :user_role_add, :parent => :useradd, :source =>
   end
 
   def password_max_age
-    shadow_entry ? shadow_entry[4] : :absent
+    return :absent unless shadow_entry
+    shadow_entry[4] || -1
   end
 
   # Read in /etc/shadow, find the line for our used and rewrite it with the

@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'ostruct'
 require 'puppet/settings/errors'
@@ -8,6 +8,19 @@ describe Puppet::Settings do
 
   MAIN_CONFIG_FILE_DEFAULT_LOCATION = File.join(Puppet::Settings.default_global_config_dir, "puppet.conf")
   USER_CONFIG_FILE_DEFAULT_LOCATION = File.join(Puppet::Settings.default_user_config_dir, "puppet.conf")
+
+  describe "when dealing with user default directories" do
+    context "user config dir" do
+      it "should expand the value to an absolute path" do
+        Pathname.new(Puppet::Settings.default_user_config_dir).absolute?.should be_true
+      end
+    end
+    context "user var dir" do
+      it "should expand the value to an absolute path" do
+        Pathname.new(Puppet::Settings.default_user_var_dir).absolute?.should be_true
+      end
+    end
+  end
 
   describe "when specifying defaults" do
     before do
@@ -658,11 +671,10 @@ describe Puppet::Settings do
     end
 
     describe "when not root" do
-      it "should look for #{MAIN_CONFIG_FILE_DEFAULT_LOCATION} and #{USER_CONFIG_FILE_DEFAULT_LOCATION} if config settings haven't been overridden'" do
+      it "should look for #{USER_CONFIG_FILE_DEFAULT_LOCATION} if config settings haven't been overridden'" do
         Puppet.features.stubs(:root?).returns(false)
 
         seq = sequence "load config files"
-        FileTest.expects(:exist?).with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).returns(false).in_sequence(seq)
         FileTest.expects(:exist?).with(USER_CONFIG_FILE_DEFAULT_LOCATION).returns(false).in_sequence(seq)
 
         @settings.send(:parse_config_files)
@@ -862,7 +874,6 @@ describe Puppet::Settings do
         @settings[:config] = somefile
       end
     end
-
   end
 
 
@@ -871,28 +882,81 @@ describe Puppet::Settings do
     let(:user_config_text) { "[main]\none = user\n" }
     let(:seq) { sequence "config_file_sequence" }
 
-    before do
-      Puppet.features.stubs(:root?).returns(false)
+    before :each do
       @settings = Puppet::Settings.new
       @settings.define_settings(:section,
-          { :one => { :default => "ONE", :desc => "a" },
-            :two => { :default => "TWO", :desc => "b" }, })
-      FileTest.expects(:exist?).with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).returns(true).in_sequence(seq)
-      @settings.expects(:read_file).with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).returns(main_config_text).in_sequence(seq)
-      FileTest.expects(:exist?).with(USER_CONFIG_FILE_DEFAULT_LOCATION).returns(true).in_sequence(seq)
-      @settings.expects(:read_file).with(USER_CONFIG_FILE_DEFAULT_LOCATION).returns(user_config_text).in_sequence(seq)
+          { :confdir => { :default => nil,                    :desc => "Conf dir" },
+            :config  => { :default => "$confdir/puppet.conf", :desc => "Config" },
+            :one     => { :default => "ONE",                  :desc => "a" },
+            :two     => { :default => "TWO",                  :desc => "b" }, })
     end
 
-    it "should return values from the config file in the user's home dir before values set in the main configuration file" do
-      @settings.send(:parse_config_files)
-      @settings[:one].should == "user"
+    context "running non-root without explicit config file" do
+      before :each do
+        Puppet.features.stubs(:root?).returns(false)
+        FileTest.expects(:exist?).
+          with(USER_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(true).in_sequence(seq)
+        @settings.expects(:read_file).
+          with(USER_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(user_config_text).in_sequence(seq)
+      end
+
+      it "should return values from the user config file" do
+        @settings.send(:parse_config_files)
+        @settings[:one].should == "user"
+      end
+
+      it "should not return values from the main config file" do
+        @settings.send(:parse_config_files)
+        @settings[:two].should == "TWO"
+      end
     end
 
-    it "should return values from the main config file if they aren't overridden in the config file in the user's home dir" do
-      @settings.send(:parse_config_files)
-      @settings[:two].should == "main2"
+    context "running as root without explicit config file" do
+      before :each do
+        Puppet.features.stubs(:root?).returns(true)
+        FileTest.expects(:exist?).
+          with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(true).in_sequence(seq)
+        @settings.expects(:read_file).
+          with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(main_config_text).in_sequence(seq)
+      end
+
+      it "should return values from the main config file" do
+        @settings.send(:parse_config_files)
+        @settings[:one].should == "main"
+      end
+
+      it "should not return values from the user config file" do
+        @settings.send(:parse_config_files)
+        @settings[:two].should == "main2"
+      end
     end
 
+    context "running with an explicit config file as a user (e.g. Apache + Passenger)" do
+      before :each do
+        Puppet.features.stubs(:root?).returns(false)
+        @settings[:confdir] = File.dirname(MAIN_CONFIG_FILE_DEFAULT_LOCATION)
+        FileTest.expects(:exist?).
+          with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(true).in_sequence(seq)
+        @settings.expects(:read_file).
+          with(MAIN_CONFIG_FILE_DEFAULT_LOCATION).
+          returns(main_config_text).in_sequence(seq)
+      end
+
+      it "should return values from the main config file" do
+        @settings.send(:parse_config_files)
+        @settings[:one].should == "main"
+      end
+
+      it "should not return values from the user config file" do
+        @settings.send(:parse_config_files)
+        @settings[:two].should == "main2"
+      end
+    end
   end
 
   describe "when reparsing its configuration" do
@@ -1486,34 +1550,34 @@ describe Puppet::Settings do
       Puppet::Settings.clean_opt("--[no-]option", false).should == ["--no-option", false]
     end
   end
-  
+
   describe "default_certname" do
     describe "using hostname and domainname" do
-      before :each do 
+      before :each do
         Puppet::Settings.stubs(:hostname_fact).returns("testhostname")
         Puppet::Settings.stubs(:domain_fact).returns("domain.test.")
-        end 
-      it "should use both to generate fqdn" do 
+      end
+
+      it "should use both to generate fqdn" do
         Puppet::Settings.default_certname.should =~ /testhostname\.domain\.test/
       end
-      
-      it "should remove trailing dots from fqdn" do 
+      it "should remove trailing dots from fqdn" do
         Puppet::Settings.default_certname.should == 'testhostname.domain.test'
-      end 
+      end
     end
-    
+
     describe "using just hostname" do
       before :each do
-        Puppet::Settings.stubs(:hostname_fact).returns("testhostname") 
+        Puppet::Settings.stubs(:hostname_fact).returns("testhostname")
         Puppet::Settings.stubs(:domain_fact).returns("")
-        end 
-      it "should use only hostname to generate fqdn" do 
-        Puppet::Settings.default_certname.should == "testhostname" 
-      end 
-      
-      it "should removing trailing dots from fqdn" do 
-        Puppet::Settings.default_certname.should == "testhostname" 
-      end 
-    end 
-  end 
+      end
+
+      it "should use only hostname to generate fqdn" do
+        Puppet::Settings.default_certname.should == "testhostname"
+      end
+      it "should removing trailing dots from fqdn" do
+        Puppet::Settings.default_certname.should == "testhostname"
+      end
+    end
+  end
 end

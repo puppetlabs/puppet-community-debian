@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'puppet/interface/action_builder'
 require 'puppet/network/format_handler'
@@ -23,8 +23,9 @@ describe Puppet::Interface::ActionBuilder do
   end
 
   it "should require a block" do
-    expect { Puppet::Interface::ActionBuilder.build(nil, :foo) }.
-      should raise_error("Action :foo must specify a block")
+    expect {
+      Puppet::Interface::ActionBuilder.build(nil, :foo)
+    }.to raise_error("Action :foo must specify a block")
   end
 
   it "should require an invocation block" do

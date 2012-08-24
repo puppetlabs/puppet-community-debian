@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'matchers/json'
 require 'puppet/indirector/request'
@@ -126,7 +126,7 @@ describe Puppet::Indirector::Request do
       end
 
       it "should default to the masterport if the URI scheme is 'puppet'" do
-        Puppet.settings.expects(:value).with(:masterport).returns "321"
+        Puppet[:masterport] = "321"
         Puppet::Indirector::Request.new(:ind, :method, "puppet://host/stuff", nil).port.should == 321
       end
 

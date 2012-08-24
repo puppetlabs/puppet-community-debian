@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 
 require 'puppet/ssl/certificate_authority'
@@ -95,14 +95,14 @@ describe Puppet::SSL::CertificateAuthority::Interface do
       lambda { @applier.apply(@ca) }.should raise_error(Puppet::SSL::CertificateAuthority::Interface::InterfaceError)
     end
 
-    it "should log non-Interface failures rather than failing" do
+    it "should log non-Interface failures" do
       @applier = @class.new(:revoke, :to => :all)
 
       @ca.expects(:list).raises ArgumentError
 
       Puppet.expects(:err)
 
-      lambda { @applier.apply(@ca) }.should_not raise_error
+      lambda { @applier.apply(@ca) }.should raise_error
     end
 
     describe "with an empty array specified and the method is not list" do
@@ -216,9 +216,9 @@ describe Puppet::SSL::CertificateAuthority::Interface do
           applier = @class.new(:list, :to => [])
 
           applier.expects(:puts).with(<<-OUTPUT.chomp)
-  host1 (fingerprint)
-  host2 (fingerprint)
-  host3 (fingerprint)
+  "host1" (fingerprint)
+  "host2" (fingerprint)
+  "host3" (fingerprint)
           OUTPUT
 
           applier.apply(@ca)
@@ -232,12 +232,12 @@ describe Puppet::SSL::CertificateAuthority::Interface do
           applier = @class.new(:list, :to => :all)
 
           applier.expects(:puts).with(<<-OUTPUT.chomp)
-  host1 (fingerprint)
-  host2 (fingerprint)
-  host3 (fingerprint)
-+ host5 (fingerprint)
-+ host6 (fingerprint)
-- host4 (fingerprint) (certificate revoked)
+  "host1" (fingerprint)
+  "host2" (fingerprint)
+  "host3" (fingerprint)
++ "host5" (fingerprint)
++ "host6" (fingerprint)
+- "host4" (fingerprint) (certificate revoked)
           OUTPUT
 
           applier.apply(@ca)
@@ -249,9 +249,9 @@ describe Puppet::SSL::CertificateAuthority::Interface do
           applier = @class.new(:list, :to => :signed)
 
           applier.expects(:puts).with(<<-OUTPUT.chomp)
-+ host4 (fingerprint)
-+ host5 (fingerprint)
-+ host6 (fingerprint)
++ "host4" (fingerprint)
++ "host5" (fingerprint)
++ "host6" (fingerprint)
           OUTPUT
 
           applier.apply(@ca)
@@ -263,7 +263,7 @@ describe Puppet::SSL::CertificateAuthority::Interface do
           applier = @class.new(:list, :to => ['host1'])
 
           applier.expects(:puts).with(<<-OUTPUT.chomp)
-  host1 (fingerprint) (alt names: DNS:foo, DNS:bar)
+  "host1" (fingerprint) (alt names: "DNS:foo", "DNS:bar")
           OUTPUT
 
           applier.apply(@ca)
@@ -275,10 +275,10 @@ describe Puppet::SSL::CertificateAuthority::Interface do
           applier = @class.new(:list, :to => %w{host1 host2 host4 host5})
 
           applier.expects(:puts).with(<<-OUTPUT.chomp)
-  host1 (fingerprint)
-  host2 (fingerprint)
-+ host4 (fingerprint)
-+ host5 (fingerprint)
+  "host1" (fingerprint)
+  "host2" (fingerprint)
++ "host4" (fingerprint)
++ "host5" (fingerprint)
             OUTPUT
 
           applier.apply(@ca)

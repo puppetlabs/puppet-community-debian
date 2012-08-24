@@ -34,7 +34,7 @@ Puppet::Type.newtype(:file) do
     parent directories of a file, the file resource will autorequire them."
 
   def self.title_patterns
-    [ [ /^(.*?)\/*\Z/m, [ [ :path, lambda{|x| x} ] ] ] ]
+    [ [ /^(.*?)\/*\Z/m, [ [ :path ] ] ] ]
   end
 
   newparam(:path) do
@@ -52,20 +52,8 @@ Puppet::Type.newtype(:file) do
       end
     end
 
-    # convert the current path in an index into the collection and the last
-    # path name. The aim is to use less storage for all common paths in a hierarchy
     munge do |value|
-      # We know the value is absolute, so expanding it will just standardize it.
-      path, name = ::File.split(::File.expand_path(value))
-
-      { :index => Puppet::FileCollection.collection.index(path), :name => name }
-    end
-
-    # and the reverse
-    unmunge do |value|
-      basedir = Puppet::FileCollection.collection.path(value[:index])
-
-      ::File.join( basedir, value[:name] )
+      ::File.expand_path(value)
     end
   end
 
@@ -142,14 +130,10 @@ Puppet::Type.newtype(:file) do
         a few files into a directory containing many
         unmanaged files without scanning all the local files.
       * `false` --- Default of no recursion.
-      * `[0-9]+` --- Same as true, but limit recursion. Warning: this syntax
-        has been deprecated in favor of the `recurselimit` attribute.
     "
 
-    newvalues(:true, :false, :inf, :remote, /^[0-9]+$/)
+    newvalues(:true, :false, :inf, :remote)
 
-    # Replace the validation so that we allow numbers in
-    # addition to string representations of them.
     validate { |arg| }
     munge do |value|
       newval = super(value)
@@ -157,23 +141,6 @@ Puppet::Type.newtype(:file) do
       when :true, :inf; true
       when :false; false
       when :remote; :remote
-      when Integer, Fixnum, Bignum
-        Puppet.deprecation_warning "Setting recursion depth with the recurse parameter is now deprecated, please use recurselimit"
-
-        # recurse == 0 means no recursion
-        return false if value == 0
-
-        resource[:recurselimit] = value
-        true
-      when /^\d+$/
-        Puppet.deprecation_warning "Setting recursion depth with the recurse parameter is now deprecated, please use recurselimit"
-        value = Integer(value)
-
-        # recurse == 0 means no recursion
-        return false if value == 0
-
-        resource[:recurselimit] = value
-        true
       else
         self.fail "Invalid recurse value #{value.inspect}"
       end
@@ -201,7 +168,7 @@ Puppet::Type.newtype(:file) do
       whose content doesn't match what the `source` or `content` attribute
       specifies.  Setting this to false allows file resources to initialize files
       without overwriting future changes.  Note that this only affects content;
-      Puppet will still manage ownership and permissions."
+      Puppet will still manage ownership and permissions. Defaults to `true`."
     newvalues(:true, :false)
     aliasvalue(:yes, :true)
     aliasvalue(:no, :false)
@@ -436,7 +403,7 @@ Puppet::Type.newtype(:file) do
     # from it.
     unless self[:ensure]
       if self[:target]
-        self[:ensure] = :symlink
+        self[:ensure] = :link
       elsif self[:content]
         self[:ensure] = :file
       end
@@ -520,6 +487,7 @@ Puppet::Type.newtype(:file) do
     # remote system.
     mark_children_for_purging(children) if self.purge?
 
+    # REVISIT: sort_by is more efficient?
     result = children.values.sort { |a, b| a[:path] <=> b[:path] }
     remove_less_specific_files(result)
   end
@@ -529,6 +497,7 @@ Puppet::Type.newtype(:file) do
   # not likely to have many actual conflicts, which is good, because
   # this is a pretty inefficient implementation.
   def remove_less_specific_files(files)
+    # REVISIT: is this Windows safe?  AltSeparator?
     mypath = self[:path].split(::File::Separator)
     other_paths = catalog.vertices.
       select  { |r| r.is_a?(self.class) and r[:path] != self[:path] }.
@@ -723,6 +692,8 @@ Puppet::Type.newtype(:file) do
     @stat = begin
       ::File.send(method, self[:path])
     rescue Errno::ENOENT => error
+      nil
+    rescue Errno::ENOTDIR => error
       nil
     rescue Errno::EACCES => error
       warning "Could not stat; permission denied"

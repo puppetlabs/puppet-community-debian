@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'puppet/daemon'
 require 'puppet/agent'
@@ -137,7 +137,7 @@ describe Puppet::Daemon, :unless => Puppet.features.microsoft_windows? do
       pidfile = mock 'pidfile'
 
       Puppet.run_mode.expects(:name).returns "eh"
-      Puppet.settings.expects(:value).with(:pidfile).returns make_absolute("/my/file")
+      Puppet[:pidfile] = make_absolute("/my/file")
 
       Puppet::Util::Pidlock.expects(:new).with(make_absolute("/my/file")).returns pidfile
 
@@ -149,7 +149,7 @@ describe Puppet::Daemon, :unless => Puppet.features.microsoft_windows? do
       pidfile = mock 'pidfile'
 
       Puppet.run_mode.expects(:name).returns "eh"
-      Puppet.settings.stubs(:value).with(:pidfile).returns make_absolute("/my/file")
+      Puppet[:pidfile] = make_absolute("/my/file")
 
       Puppet::Util::Pidlock.expects(:new).with(make_absolute("/my/file")).returns pidfile
 

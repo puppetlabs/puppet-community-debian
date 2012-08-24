@@ -1,4 +1,4 @@
-#!/usr/bin/env rspec
+#! /usr/bin/env ruby -S rspec
 require 'spec_helper'
 require 'tempfile'
 
@@ -10,8 +10,9 @@ describe "the extlookup function" do
   end
 
   before :each do
-    @scope = Puppet::Parser::Scope.new
-    @scope.stubs(:environment).returns(Puppet::Node::Environment.new('production'))
+    node     = Puppet::Node.new('localhost')
+    compiler = Puppet::Parser::Compiler.new(node)
+    @scope   = Puppet::Parser::Scope.new(compiler)
   end
 
   it "should exist" do
